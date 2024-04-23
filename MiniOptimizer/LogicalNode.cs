@@ -60,13 +60,13 @@ namespace MiniOptimizer
 
     public class LogicalScanNode : LogicalNode 
     {
-        public string? Alias { get; set; }
+        public string? TableName { get; set; }
 
         public int TableId { get; set; }
 
         public LogicalScanNode(int id, string alias, int tableId) : base(id) 
         {
-            Alias = alias; 
+            TableName = alias; 
             TableId = tableId;
         }
 
@@ -92,6 +92,20 @@ namespace MiniOptimizer
             TableName = tableName;
             Column = column;
             Value = value;
+        }
+    }
+
+    public class LogicalJoinNode : LogicalNode
+    {
+        public Op JoinOp { get; set; }
+        public string? LeftColumn { get; set; }
+        public string? RightColumn { get; set; }
+
+        public LogicalJoinNode(int id, Op op, string? leftColumn, string? rightColumn) : base(id)
+        {
+            JoinOp = op;
+            LeftColumn = leftColumn;
+            RightColumn = rightColumn;
         }
     }
 }
