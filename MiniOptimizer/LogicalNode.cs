@@ -7,12 +7,20 @@ using System.Threading.Tasks;
 
 namespace MiniOptimizer
 {
+
+    public enum LogicalNodeType
+    {
+        SELECTION, PROJECTION, JOIN, PRODUCT, SCAN
+    }
+
     public class LogicalNode
     {
 
         public int Id {  get; set; }
         public List<LogicalNode> Children { get; private set; }
         public LogicalNode? Parent { get; set; }
+
+        public LogicalNodeType Type { get ; set; }
 
         public LogicalNode(int id)
         {
@@ -39,11 +47,14 @@ namespace MiniOptimizer
         public LogicalProjectionNode(int id) : base(id)
         {
             Attributes = new List<string>();
+            Type = LogicalNodeType.PROJECTION;
         }
 
         public LogicalProjectionNode(string Attribute)
         {
-            Attributes = [Attribute];
+            Attributes = new List<string>();
+            Attributes.Add(Attribute);
+            Type = LogicalNodeType.PROJECTION;
         }
 
         public void AddAttribute(string attribute)
@@ -68,11 +79,13 @@ namespace MiniOptimizer
         {
             TableName = alias; 
             TableId = tableId;
+            Type = LogicalNodeType.SCAN;
         }
 
         public LogicalScanNode(int id , int tableId) : base(id)
         {
             TableId=tableId;
+            Type = LogicalNodeType.SCAN;
         }
     }
 
@@ -92,6 +105,7 @@ namespace MiniOptimizer
             TableName = tableName;
             Column = column;
             Value = value;
+            Type = LogicalNodeType.SELECTION;
         }
     }
 
@@ -106,6 +120,14 @@ namespace MiniOptimizer
             JoinOp = op;
             LeftColumn = leftColumn;
             RightColumn = rightColumn;
+            Type = LogicalNodeType.JOIN;
+        }
+    }
+
+    public class LogicalProductNode: LogicalNode
+    {
+        public LogicalProductNode(int id) : base(id) {
+            Type = LogicalNodeType.PRODUCT; 
         }
     }
 }

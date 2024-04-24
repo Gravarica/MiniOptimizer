@@ -7,13 +7,9 @@ namespace MiniOptimizer
     {
         static void Main(string[] args)
         {
-            var input = new AntlrInputStream("SELECT name FROM name WHERE name = name");
-            var lexer = new MiniQLLexer(input);
-            var tokens = new CommonTokenStream(lexer);
-            var parser = new MiniQLParser(tokens);
-
-            var context = parser.query();
-            Console.WriteLine("Parsing complete");
+            MiniQLParser parser = new MiniQLParser();
+            var logicalPlan = parser.Parse("SELECT mbr, ime FROM radnik, radproj, projekat WHERE mbr = 10");
+            logicalPlan.PrintLogicalPlan();
         }
     }
 }

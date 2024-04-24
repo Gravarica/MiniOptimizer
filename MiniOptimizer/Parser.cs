@@ -1,150 +1,111 @@
-﻿using System;
+﻿using Antlr4.Runtime;
+using Antlr4.Runtime.Tree;
+using MiniOptimizer;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Antlr4.Runtime;
-using Antlr4.Runtime.Misc;
 
-namespace MiniOptimizer
+public class MiniQLParser
 {
-    public class Parser
+    public LogicalPlan Parse(string input)
     {
-        MiniQLParser parser_;
-        
+        AntlrInputStream inputStream = new AntlrInputStream(input);
+        MiniQLLexer lexer = new MiniQLLexer(inputStream);
+        CommonTokenStream tokens = new CommonTokenStream(lexer);
+        MiniQLParser parser = new MiniQLParser(tokens);
 
-        public Parser() { }
+        IParseTree parseTree = parser.query();
+
+        LogicalPlan logicalPlan = new LogicalPlan();
+
+        logicalPlan.SetRootNode(VisitQuery(parseTree.GetChild(0) as MiniQLParser.QueryContext));
+
+        return logicalPlan;
     }
 
-    class MiniQLVisitor : MiniQLBaseVisitor<object>
+    private LogicalNode VisitQuery(MiniQLParser.QueryContext context)
     {
-        private int _nodeId = 0;
-        private Dictionary<string, int> _tableAliasMap = new Dictionary<string, int>();
+        List<string> projectedAttributes = VisitAttributeList(context.attributeList());
+        List<LogicalNode> scanNodes = VisitRelationList(context.relationList());
 
-        public override LogicalNode VisitQuery([NotNull] MiniQLParser.QueryContext context)
+        LogicalNode productNode = CreateProductNode(scanNodes);
+
+        if (context.condition() != null)
         {
-            var projectionNode = VisitAttributeList(context.attributeList());
-            var scanNodes = VisitRelationList(context.relationList());
-
-            if (context.condition() != null)
-            {
-                var selectionNode = VisitCondition(context.condition());
-                selectionNode.AddChild(scanNodes);
-                projectionNode.AddChild(selectionNode);
-            }
-            else
-            {
-                projectionNode.AddChild(scanNodes);
-            }
-
+            LogicalNode selectionNode = VisitCondition(context.condition(), productNode);
+            LogicalNode projectionNode = CreateProjectionNode(projectedAttributes);
+            projectionNode.AddChild(selectionNode);
             return projectionNode;
         }
-
-        public override LogicalNode VisitAttributeList([NotNull] MiniQLParser.AttributeListContext context)
+        else
         {
-            var projectionNode = new LogicalProjectionNode(_nodeId++);
-
-            foreach (var attributeContext in context.attribute())
-            {
-                projectionNode.AddAttribute(attributeContext.GetText());
-            }
-
+            LogicalNode projectionNode = CreateProjectionNode(projectedAttributes);
+            projectionNode.AddChild(productNode);
             return projectionNode;
         }
+    }
 
-        public override LogicalNode VisitRelationList([NotNull] MiniQLParser.RelationListContext context)
+    private List<string> VisitAttributeList(MiniQLParser.AttributeListContext context)
+    {
+        List<string> attributes = new List<string>();
+        foreach (MiniQLParser.AttributeContext attributeContext in context.attribute())
         {
-            var scanNodes = new List<LogicalScanNode>();
-
-            foreach (var relationContext in context.relation())
-            {
-                var tableName = relationContext.GetText();
-                var tableId = _tableAliasMap.GetValueOrDefault(tableName, _tableAliasMap.Count);
-                _tableAliasMap[tableName] = tableId;
-
-                var scanNode = new LogicalScanNode(_nodeId++, tableName, tableId);
-                scanNodes.Add(scanNode);
-            }
-
-            return scanNodes.Count == 1 ? scanNodes[0] : new LogicalNode(_nodeId++) { Children = scanNodes };
+            attributes.Add(attributeContext.GetText());
         }
+        return attributes;
+    }
 
-        public override LogicalNode VisitCondition([NotNull] MiniQLParser.ConditionContext context)
+    private List<LogicalNode> VisitRelationList(MiniQLParser.RelationListContext context)
+    {
+        List<LogicalNode> scanNodes = new List<LogicalNode>();
+        foreach (MiniQLParser.RelationContext relationContext in context.relation())
         {
-            if (context.ChildCount == 3)
-            {
-                var leftCondition = VisitCondition(context.condition(0));
-                var rightCondition = VisitCondition(context.condition(1));
-
-                var andNode = new LogicalNode(_nodeId++);
-                andNode.AddChild(leftCondition);
-                andNode.AddChild(rightCondition);
-
-                return andNode;
-            }
-            else
-            {
-                var leftAttribute = VisitAttribute(context.attribute(0));
-                var rightAttribute = VisitAttribute(context.attribute(1));
-
-                LogicalScanNode? leftScanNode = leftAttribute as LogicalScanNode;
-                LogicalScanNode? rightScanNode = rightAttribute as LogicalScanNode;
-
-                if (leftScanNode != null && rightScanNode != null)
-                {
-                    // Both left and right attributes are qualified names (join condition)
-                    var leftColumn = leftAttribute.GetText().Split('.')[1];
-                    var rightColumn = rightAttribute.GetText().Split('.')[1];
-
-                    var selectionNode = new LogicalSelectionNode(_nodeId++, Op.EQ, null, leftColumn, rightColumn);
-                    selectionNode.AddChild(leftScanNode);
-                    selectionNode.AddChild(rightScanNode);
-                    return selectionNode;
-                }
-                else
-                {
-                    // One attribute is a column name, and the other is a constant
-                    LogicalNode? scanNode = leftScanNode ?? rightScanNode;
-                    string? column = leftScanNode != null ? rightAttribute.GetText() : leftAttribute.GetText();
-                    string? value = leftScanNode == null ? leftAttribute.GetText() : rightAttribute.GetText();
-
-                    var selectionNode = new LogicalSelectionNode(_nodeId++, Op.EQ, scanNode?.Alias, column, value);
-                    if (scanNode != null)
-                    {
-                        selectionNode.AddChild(scanNode);
-                    }
-                    return selectionNode;
-                }
-            }
+            string tableName = relationContext.GetText();
+            int tableId = /* Get table ID from catalog */;
+            scanNodes.Add(new LogicalScanNode(tableName, tableId));
         }
+        return scanNodes;
+    }
 
-        public override LogicalNode VisitAttribute([NotNull] MiniQLParser.AttributeContext context)
+    private LogicalNode VisitCondition(MiniQLParser.ConditionContext context, LogicalNode inputNode)
+    {
+        if (context.ChildCount == 3)
         {
-            if (context.constant() != null)
-            {
-                return VisitConstant(context.constant());
-            }
-            else
-            {
-                var identifier = context.identifier().GetText();
-                var parts = identifier.Split('.');
+            LogicalNode leftCondition = VisitCondition(context.condition(0), inputNode);
+            LogicalNode rightCondition = VisitCondition(context.condition(1), inputNode);
 
-                if (parts.Length == 2)
-                {
-                    var tableAlias = parts[0];
-                    var tableId = _tableAliasMap[tableAlias];
-                    return new LogicalScanNode(_nodeId++, tableAlias, tableId);
-                }
-                else
-                {
-                    return new LogicalProjectionNode(identifier);
-                }
-            }
+            LogicalNode andNode = new LogicalNode();
+            andNode.AddChild(leftCondition);
+            andNode.AddChild(rightCondition);
+            return andNode;
         }
-
-        public override LogicalNode VisitConstant([NotNull] MiniQLParser.ConstantContext context)
+        else
         {
-            return new LogicalProjectionNode(context.GetText());
+            string leftOperand = context.attribute(0).GetText();
+            string rightOperand = context.attribute(1).GetText();
+            Op op = Op.EQ; // Assuming equality condition
+
+            LogicalNode selectionNode = new LogicalSelectionNode(op, leftOperand, rightOperand);
+            selectionNode.AddChild(inputNode);
+            return selectionNode;
         }
+    }
+
+    private LogicalNode CreateProductNode(List<LogicalNode> scanNodes)
+    {
+        LogicalNode productNode = new LogicalProductNode();
+        foreach (LogicalNode scanNode in scanNodes)
+        {
+            productNode.AddChild(scanNode);
+        }
+        return productNode;
+    }
+
+    private LogicalNode CreateProjectionNode(List<string> projectedAttributes)
+    {
+        LogicalNode projectionNode = new LogicalProjectionNode();
+        foreach (string attribute in projectedAttributes)
+        {
+            projectionNode.AddProjectedAttribute(attribute);
+        }
+        return projectionNode;
     }
 }
