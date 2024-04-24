@@ -8,7 +8,7 @@ namespace MiniOptimizer
 {
     public class Catalog
     {
-        HashSet<String, TableStats> 
+        Dictionary<String, TableStats> Stats { get ; set; }
         public Catalog() { }
     }
 }

@@ -13,8 +13,8 @@ relationList
     ;
 
 condition
-    : attribute EQ attribute           
-    | condition AND condition        
+    : condition AND condition
+    | attribute EQ attribute                    
     ;
 
 attribute

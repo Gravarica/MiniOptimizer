@@ -3,7 +3,7 @@ using Antlr4.Runtime.Tree;
 using MiniOptimizer;
 using System.Collections.Generic;
 
-public class MiniQLParser
+public class Parser
 {
     public LogicalPlan Parse(string input)
     {
@@ -12,11 +12,11 @@ public class MiniQLParser
         CommonTokenStream tokens = new CommonTokenStream(lexer);
         MiniQLParser parser = new MiniQLParser(tokens);
 
-        IParseTree parseTree = parser.query();
+        var queryContext = parser.query();
 
         LogicalPlan logicalPlan = new LogicalPlan();
 
-        logicalPlan.SetRootNode(VisitQuery(parseTree.GetChild(0) as MiniQLParser.QueryContext));
+        logicalPlan.SetRootNode(VisitQuery(queryContext));
 
         return logicalPlan;
     }
@@ -30,6 +30,7 @@ public class MiniQLParser
 
         if (context.condition() != null)
         {
+            Console.WriteLine("Condition context nije null");
             LogicalNode selectionNode = VisitCondition(context.condition(), productNode);
             LogicalNode projectionNode = CreateProjectionNode(projectedAttributes);
             projectionNode.AddChild(selectionNode);
@@ -59,39 +60,26 @@ public class MiniQLParser
         foreach (MiniQLParser.RelationContext relationContext in context.relation())
         {
             string tableName = relationContext.GetText();
-            int tableId = /* Get table ID from catalog */;
-            scanNodes.Add(new LogicalScanNode(tableName, tableId));
+            int tableId = 1;
+            scanNodes.Add(new LogicalScanNode(LogicalPlan.GetNextNodeId(), tableName, tableId));
         }
         return scanNodes;
     }
 
     private LogicalNode VisitCondition(MiniQLParser.ConditionContext context, LogicalNode inputNode)
     {
-        if (context.ChildCount == 3)
-        {
-            LogicalNode leftCondition = VisitCondition(context.condition(0), inputNode);
-            LogicalNode rightCondition = VisitCondition(context.condition(1), inputNode);
+        string leftOperand = context.attribute(0).GetText();
+        string rightOperand = context.attribute(1).GetText();
+        Op op = new Op(Predicate.EQ); // Assuming equality condition
 
-            LogicalNode andNode = new LogicalNode();
-            andNode.AddChild(leftCondition);
-            andNode.AddChild(rightCondition);
-            return andNode;
-        }
-        else
-        {
-            string leftOperand = context.attribute(0).GetText();
-            string rightOperand = context.attribute(1).GetText();
-            Op op = Op.EQ; // Assuming equality condition
-
-            LogicalNode selectionNode = new LogicalSelectionNode(op, leftOperand, rightOperand);
-            selectionNode.AddChild(inputNode);
-            return selectionNode;
-        }
+        LogicalNode selectionNode = new LogicalSelectionNode(LogicalPlan.GetNextNodeId(), op, leftOperand, rightOperand);
+        selectionNode.AddChild(inputNode);
+        return selectionNode;
     }
 
     private LogicalNode CreateProductNode(List<LogicalNode> scanNodes)
     {
-        LogicalNode productNode = new LogicalProductNode();
+        LogicalNode productNode = new LogicalProductNode(LogicalPlan.GetNextNodeId());
         foreach (LogicalNode scanNode in scanNodes)
         {
             productNode.AddChild(scanNode);
@@ -101,10 +89,10 @@ public class MiniQLParser
 
     private LogicalNode CreateProjectionNode(List<string> projectedAttributes)
     {
-        LogicalNode projectionNode = new LogicalProjectionNode();
+        LogicalProjectionNode projectionNode = new LogicalProjectionNode(LogicalPlan.GetNextNodeId());
         foreach (string attribute in projectedAttributes)
         {
-            projectionNode.AddProjectedAttribute(attribute);
+            projectionNode.AddAttribute(attribute);
         }
         return projectionNode;
     }

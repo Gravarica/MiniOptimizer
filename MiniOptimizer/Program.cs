@@ -7,8 +7,8 @@ namespace MiniOptimizer
     {
         static void Main(string[] args)
         {
-            MiniQLParser parser = new MiniQLParser();
-            var logicalPlan = parser.Parse("SELECT mbr, ime FROM radnik, radproj, projekat WHERE mbr = 10");
+            Parser parser = new Parser();
+            var logicalPlan = parser.Parse("SELECT mbr, ime, prz, god, dat FROM radnik, radproj WHERE mbr = 5");
             logicalPlan.PrintLogicalPlan();
         }
     }

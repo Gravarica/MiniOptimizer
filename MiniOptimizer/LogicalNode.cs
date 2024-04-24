@@ -93,18 +93,15 @@ namespace MiniOptimizer
     {
         public Op Op { get; set; }
 
-        public string? TableName { get; set; }
+        public string? LeftOperand { get; set; }
 
-        public string? Column { get; set; }
+        public string? RightOperand { get; set; } 
 
-        public string? Value { get; set; } 
-
-        public LogicalSelectionNode(int id, Op op, string tableName,  string? column, string? value) : base(id)
+        public LogicalSelectionNode(int id, Op op, string? column, string? value) : base(id)
         {
             Op = op;
-            TableName = tableName;
-            Column = column;
-            Value = value;
+            LeftOperand = column;
+            RightOperand = value;
             Type = LogicalNodeType.SELECTION;
         }
     }

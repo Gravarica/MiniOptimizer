@@ -9,7 +9,7 @@ namespace MiniOptimizer
     public class LogicalPlan
     {
         public LogicalNode RootNode { get; private set; }
-        private int _nodeId = 0;
+        private static int _nodeId = 0;
 
         public LogicalPlan()
         {
@@ -50,7 +50,7 @@ namespace MiniOptimizer
             RootNode = rootNode;
         }
 
-        public int GetNextNodeId()
+        public static int GetNextNodeId()
         {
             return _nodeId++;
         }
@@ -81,21 +81,21 @@ namespace MiniOptimizer
             switch (node)
             {
                 case LogicalProjectionNode projectionNode:
-                    Console.WriteLine($"{indentString}Projection: {string.Join(", ", projectionNode.ProjectedAttributes)}");
+                    Console.WriteLine($"{indentString}Projection: {string.Join(", ", projectionNode.Attributes)}");
                     foreach (LogicalNode child in node.Children)
                     {
                         PrintNode(child, indent + 1);
                     }
                     break;
                 case LogicalSelectionNode selectionNode:
-                    Console.WriteLine($"{indentString}Selection: {selectionNode.LeftOperand} {selectionNode.Operator} {selectionNode.RightOperand}");
+                    Console.WriteLine($"{indentString}Selection: {selectionNode.LeftOperand} {selectionNode.Op.ToString()} {selectionNode.RightOperand}");
                     foreach (LogicalNode child in node.Children)
                     {
                         PrintNode(child, indent + 1);
                     }
                     break;
                 case LogicalJoinNode joinNode:
-                    Console.WriteLine($"{indentString}Join: {joinNode.JoinType}, {joinNode.LeftJoinAttribute} {joinNode.JoinCondition} {joinNode.RightJoinAttribute}");
+                    Console.WriteLine($"{indentString}Join: {joinNode.LeftColumn} = {joinNode.RightColumn}");
                     foreach (LogicalNode child in node.Children)
                     {
                         PrintNode(child, indent + 1);
