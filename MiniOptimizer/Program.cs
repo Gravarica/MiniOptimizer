@@ -1,5 +1,8 @@
 ﻿using Antlr4.Runtime;
+using MiniOptimizer.Metadata;
+using MiniOptimizer.Test;
 using System;
+using System.Runtime.InteropServices;
 
 namespace MiniOptimizer
 {
@@ -7,9 +10,24 @@ namespace MiniOptimizer
     {
         static void Main(string[] args)
         {
-            Parser parser = new Parser();
-            var logicalPlan = parser.Parse("SELECT mbr, ime, prz, god, dat FROM radnik, radproj WHERE mbr = 5");
-            logicalPlan.PrintLogicalPlan();
+            Catalog catalog = TestData.TestDataFromFile(false);
+
+            Parser parser = new Parser(catalog);
+            while (true)
+            {
+                Console.WriteLine("Unesite upit: ");
+                string query = Console.ReadLine();
+                if (query == "X") break;
+                try
+                {
+                    var logicalPlan = parser.Parse(query);
+                    logicalPlan.PrintLogicalPlan();
+                } catch (Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                }
+            }
+            
         }
     }
 }

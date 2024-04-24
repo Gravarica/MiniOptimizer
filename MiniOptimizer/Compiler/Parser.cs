@@ -1,10 +1,20 @@
 ﻿using Antlr4.Runtime;
 using Antlr4.Runtime.Tree;
 using MiniOptimizer;
+using MiniOptimizer.Exceptions;
+using MiniOptimizer.LogicalPlan;
+using MiniOptimizer.Metadata;
 using System.Collections.Generic;
 
 public class Parser
 {
+    private Catalog _catalog;
+
+    public Parser(Catalog catalog)
+    {
+        _catalog=catalog;
+    }
+
     public LogicalPlan Parse(string input)
     {
         AntlrInputStream inputStream = new AntlrInputStream(input);
@@ -30,7 +40,6 @@ public class Parser
 
         if (context.condition() != null)
         {
-            Console.WriteLine("Condition context nije null");
             LogicalNode selectionNode = VisitCondition(context.condition(), productNode);
             LogicalNode projectionNode = CreateProjectionNode(projectedAttributes);
             projectionNode.AddChild(selectionNode);
@@ -49,6 +58,10 @@ public class Parser
         List<string> attributes = new List<string>();
         foreach (MiniQLParser.AttributeContext attributeContext in context.attribute())
         {
+            string attribute = attributeContext.GetText();
+            string[] parts = attribute.Split('.');
+            if (parts.Length != 2) throw new BaseException("Column identifiers must be specified as <table>.<column>");
+            if (!_catalog.CheckIfColumnExists(parts[0], parts[1])) throw new ColumnNotFoundException(parts[1]);
             attributes.Add(attributeContext.GetText());
         }
         return attributes;
@@ -60,6 +73,8 @@ public class Parser
         foreach (MiniQLParser.RelationContext relationContext in context.relation())
         {
             string tableName = relationContext.GetText();
+            if (!_catalog.CheckIfTableExists(tableName)) throw new TableNotFoundException(tableName);
+
             int tableId = 1;
             scanNodes.Add(new LogicalScanNode(LogicalPlan.GetNextNodeId(), tableName, tableId));
         }
