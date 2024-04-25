@@ -3,18 +3,20 @@ using Antlr4.Runtime.Tree;
 using MiniOptimizer;
 using MiniOptimizer.Compiler;
 using MiniOptimizer.Exceptions;
-using MiniOptimizer.LogicalPlan;
+using MiniOptimizer.LogicPlan;
 using MiniOptimizer.Metadata;
 using System.Collections.Generic;
 
 public class Parser
 {
     private Catalog _catalog;
-    private List<LogicalSelectionNode> _selectionNodes = new List<LogicalSelectionNode>();
+    public LogicalPlan _logicalPlan;
+    public bool SemanticCheck { get; set; }
 
-    public Parser(Catalog catalog)
+    public Parser(Catalog catalog, bool semanticCheck = true)
     {
         _catalog=catalog;
+        SemanticCheck = semanticCheck;
     }
 
     public LogicalPlan Parse(string input)
@@ -26,36 +28,24 @@ public class Parser
 
         var queryContext = parser.query();
 
-        LogicalPlan logicalPlan = new LogicalPlan();
+        _logicalPlan = new LogicalPlan();
 
-        logicalPlan.SetRootNode(VisitQuery(queryContext));
+        VisitQuery(queryContext);
 
-        return logicalPlan;
+        return _logicalPlan;
     }
 
-    private LogicalNode VisitQuery(MiniQLParser.QueryContext context)
+    private void VisitQuery(MiniQLParser.QueryContext context)
     {
         List<string> projectedAttributes = VisitAttributeList(context.attributeList());
-        List<LogicalNode> scanNodes = VisitRelationList(context.relationList());
-        LogicalNode productNode;
+        VisitRelationList(context.relationList());
 
-        if (scanNodes.Count > 1) 
-            productNode = CreateProductNode(scanNodes);
-        else 
-            productNode = scanNodes[0];
+        LogicalProjectionNode projectionNode = (LogicalProjectionNode) _logicalPlan.CreateProjectionNode(projectedAttributes);
+        _logicalPlan.ProjectionNodes.Add(projectionNode);
 
         if (context.condition() != null)
         {
-            LogicalNode selectionNode = VisitCondition(context.condition(), productNode);
-            LogicalNode projectionNode = CreateProjectionNode(projectedAttributes);
-            projectionNode.AddChild(selectionNode);
-            return projectionNode;
-        }
-        else
-        {
-            LogicalNode projectionNode = CreateProjectionNode(projectedAttributes);
-            projectionNode.AddChild(productNode);
-            return projectionNode;
+            VisitCondition(context.condition());
         }
     }
 
@@ -66,63 +56,49 @@ public class Parser
         {
             string attribute = attributeContext.GetText();
             string[] parts = attribute.Split('.');
-            if (parts.Length != 2) throw new BaseException("Column identifiers must be specified as <table>.<column>");
-            if (!_catalog.CheckIfColumnExists(parts[0], parts[1])) throw new ColumnNotFoundException(parts[1]);
-            attributes.Add(attributeContext.GetText());
+
+            if (SemanticCheck && parts.Length != 2) 
+                throw new BaseException("Column identifiers must be specified as <table>.<column>");
+            if (!_catalog.CheckIfColumnExists(parts[0], parts[1]) && SemanticCheck)
+                throw new ColumnNotFoundException(parts[1]);
+
+            attributes.Add(attribute);
         }
         return attributes;
     }
 
-    private List<LogicalNode> VisitRelationList(MiniQLParser.RelationListContext context)
+    private void VisitRelationList(MiniQLParser.RelationListContext context)
     {
-        List<LogicalNode> scanNodes = new List<LogicalNode>();
+        
         foreach (MiniQLParser.RelationContext relationContext in context.relation())
         {
             string tableName = relationContext.GetText();
-            if (!_catalog.CheckIfTableExists(tableName)) throw new TableNotFoundException(tableName);
+
+            if (!_catalog.CheckIfTableExists(tableName) && SemanticCheck)
+                throw new TableNotFoundException(tableName);
 
             int tableId = 1;
-            scanNodes.Add(new LogicalScanNode(LogicalPlan.GetNextNodeId(), tableName, tableId));
+            LogicalScanNode node = new LogicalScanNode(LogicalPlan.GetNextNodeId(), tableName, tableId);
+            _logicalPlan.ScanNodes.Add(node);
         }
-        return scanNodes;
     }
 
-    private LogicalNode VisitCondition(MiniQLParser.ConditionContext context, LogicalNode inputNode)
+    private void VisitCondition(MiniQLParser.ConditionContext context)
     {
         
         if (context.AND() != null)
         {
-            VisitCondition(context.condition(0), inputNode);
-            VisitCondition(context.condition(1), inputNode);
-        }
-
-        string leftOperand = context.attribute(0).GetText();
-        string rightOperand = context.attribute(1).GetText();
-        Op op = new Op(Predicate.EQ);
-
-        LogicalSelectionNode selectionNode = new LogicalSelectionNode(LogicalPlan.GetNextNodeId(), op, leftOperand, rightOperand);
-        selectionNode.AddChild(inputNode);
-        _selectionNodes.Add(selectionNode);
-        return selectionNode;
-    }
-
-    private LogicalNode CreateProductNode(List<LogicalNode> scanNodes)
-    {
-        LogicalNode productNode = new LogicalProductNode(LogicalPlan.GetNextNodeId());
-        foreach (LogicalNode scanNode in scanNodes)
+            VisitCondition(context.condition(0));
+            VisitCondition(context.condition(1));
+        } 
+        else
         {
-            productNode.AddChild(scanNode);
-        }
-        return productNode;
-    }
+            string leftOperand = context.attribute(0).GetText();
+            string rightOperand = context.attribute(1).GetText();
+            Op op = new Op(Predicate.EQ);
 
-    private LogicalNode CreateProjectionNode(List<string> projectedAttributes)
-    {
-        LogicalProjectionNode projectionNode = new LogicalProjectionNode(LogicalPlan.GetNextNodeId());
-        foreach (string attribute in projectedAttributes)
-        {
-            projectionNode.AddAttribute(attribute);
+            LogicalSelectionNode selectionNode = new LogicalSelectionNode(LogicalPlan.GetNextNodeId(), op, leftOperand, rightOperand);
+            _logicalPlan.SelectionNodes.Add(selectionNode);
         }
-        return projectionNode;
     }
 }

@@ -12,7 +12,7 @@ namespace MiniOptimizer
         {
             Catalog catalog = TestData.TestDataFromFile(false);
 
-            Parser parser = new Parser(catalog);
+            Parser parser = new Parser(catalog, false);
             while (true)
             {
                 Console.WriteLine("Unesite upit: ");
@@ -21,6 +21,7 @@ namespace MiniOptimizer
                 try
                 {
                     var logicalPlan = parser.Parse(query);
+                    logicalPlan.CreateInitialPlan();
                     logicalPlan.PrintLogicalPlan();
                 } catch (Exception ex)
                 {

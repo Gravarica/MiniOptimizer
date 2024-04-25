@@ -4,12 +4,19 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace MiniOptimizer.LogicalPlan
+namespace MiniOptimizer.LogicPlan
 {
     public class LogicalPlan
     {
         public LogicalNode RootNode { get; private set; }
         private static int _nodeId = 0;
+
+        public List<LogicalProjectionNode> ProjectionNodes { get; set; } = new List<LogicalProjectionNode>();
+        public List<LogicalSelectionNode> SelectionNodes { get; set; } = new List<LogicalSelectionNode>();
+        public List<LogicalScanNode> ScanNodes { get; set; } = new List<LogicalScanNode>();
+        public List<LogicalProductNode> ProductNodes {get; set; } = new List<LogicalProductNode>();
+
+        private Queue<LogicalScanNode> _nodeQueue;
 
         public LogicalPlan()
         {
@@ -53,6 +60,55 @@ namespace MiniOptimizer.LogicalPlan
         public static int GetNextNodeId()
         {
             return _nodeId++;
+        }
+
+        public void CreateInitialPlan()
+        {
+            SetRootNode(ProjectionNodes.First());
+
+            if (SelectionNodes.Count > 0) 
+                RootNode.Children.Add(SelectionNodes.First());
+
+            for (int i = 1; i < SelectionNodes.Count; i++)
+            {
+                SelectionNodes[i - 1].Children.Add(SelectionNodes[i]);
+            }
+
+            LogicalNode ldtParent = SelectionNodes.Count > 0 ? SelectionNodes.Last() : RootNode;
+
+            if (ScanNodes.Count == 1)
+            {
+                ldtParent.Children.Add(ScanNodes[0]);
+                return;
+            }
+            
+            _nodeQueue = new Queue<LogicalScanNode>(ScanNodes);
+            LogicalProductNode root = CreateLeftDeepTree();
+
+            ldtParent.Children.Add(root);
+
+        }
+
+        private LogicalProductNode CreateLeftDeepTree()
+        {
+
+            LogicalProductNode initial = new LogicalProductNode(GetNextNodeId());
+
+            initial.Children.Add(_nodeQueue.Dequeue());
+            initial.Children.Add(_nodeQueue.Dequeue());
+
+            LogicalProductNode current = initial;
+
+            while (_nodeQueue.Count > 0)
+            {
+                LogicalProductNode newNode = new LogicalProductNode(GetNextNodeId());
+                newNode.Children.Add(current);
+                newNode.Children.Add(_nodeQueue.Dequeue());
+
+                current = newNode;
+            }
+
+            return current;
         }
 
         public void PrintLogicalPlan()

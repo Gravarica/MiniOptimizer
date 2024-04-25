@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace MiniOptimizer
+namespace MiniOptimizer.LogicPlan
 {
 
     public enum LogicalNodeType
@@ -55,6 +55,11 @@ namespace MiniOptimizer
             Attributes = new List<string>();
             Attributes.Add(Attribute);
             Type = LogicalNodeType.PROJECTION;
+        }
+
+        public LogicalProjectionNode(List<string> attributes)
+        {
+            Attributes = attributes;
         }
 
         public void AddAttribute(string attribute)

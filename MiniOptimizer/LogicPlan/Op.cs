@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace MiniOptimizer
+namespace MiniOptimizer.LogicPlan
 {
 
     public enum Predicate { LT, GT, LE, GE, EQ, NE, LIKE };
