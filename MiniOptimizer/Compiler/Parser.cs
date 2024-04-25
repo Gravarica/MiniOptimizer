@@ -1,6 +1,7 @@
 ﻿using Antlr4.Runtime;
 using Antlr4.Runtime.Tree;
 using MiniOptimizer;
+using MiniOptimizer.Compiler;
 using MiniOptimizer.Exceptions;
 using MiniOptimizer.LogicalPlan;
 using MiniOptimizer.Metadata;
@@ -9,6 +10,7 @@ using System.Collections.Generic;
 public class Parser
 {
     private Catalog _catalog;
+    private List<LogicalSelectionNode> _selectionNodes = new List<LogicalSelectionNode>();
 
     public Parser(Catalog catalog)
     {
@@ -35,8 +37,12 @@ public class Parser
     {
         List<string> projectedAttributes = VisitAttributeList(context.attributeList());
         List<LogicalNode> scanNodes = VisitRelationList(context.relationList());
+        LogicalNode productNode;
 
-        LogicalNode productNode = CreateProductNode(scanNodes);
+        if (scanNodes.Count > 1) 
+            productNode = CreateProductNode(scanNodes);
+        else 
+            productNode = scanNodes[0];
 
         if (context.condition() != null)
         {
@@ -83,12 +89,20 @@ public class Parser
 
     private LogicalNode VisitCondition(MiniQLParser.ConditionContext context, LogicalNode inputNode)
     {
+        
+        if (context.AND() != null)
+        {
+            VisitCondition(context.condition(0), inputNode);
+            VisitCondition(context.condition(1), inputNode);
+        }
+
         string leftOperand = context.attribute(0).GetText();
         string rightOperand = context.attribute(1).GetText();
-        Op op = new Op(Predicate.EQ); // Assuming equality condition
+        Op op = new Op(Predicate.EQ);
 
-        LogicalNode selectionNode = new LogicalSelectionNode(LogicalPlan.GetNextNodeId(), op, leftOperand, rightOperand);
+        LogicalSelectionNode selectionNode = new LogicalSelectionNode(LogicalPlan.GetNextNodeId(), op, leftOperand, rightOperand);
         selectionNode.AddChild(inputNode);
+        _selectionNodes.Add(selectionNode);
         return selectionNode;
     }
 

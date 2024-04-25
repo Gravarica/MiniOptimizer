@@ -104,6 +104,11 @@ namespace MiniOptimizer
             RightOperand = value;
             Type = LogicalNodeType.SELECTION;
         }
+
+        public LogicalSelectionNode(int id) : base(id)
+        {
+            Type = LogicalNodeType.SELECTION;
+        }
     }
 
     public class LogicalJoinNode : LogicalNode
