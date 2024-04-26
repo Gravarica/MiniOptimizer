@@ -28,5 +28,17 @@ namespace MiniOptimizer.Metadata
         {
             return Tables[tableName].CheckIfColumnExists(columnName);
         }
+
+        public ColumnType GetColumnType(string tableName, string columnName)
+        {
+            return Tables[tableName].GetColumnType(columnName);
+        }
+
+        public List<string> GetTablesByColumn(string column)
+        {
+            return (from table in Tables
+                    where table.Value.CheckIfColumnExists(column)
+                    select table.Key).ToList();
+        }
     }
 }

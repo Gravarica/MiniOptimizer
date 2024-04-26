@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.Design;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -11,6 +12,11 @@ namespace MiniOptimizer.LogicPlan
     public enum LogicalNodeType
     {
         SELECTION, PROJECTION, JOIN, PRODUCT, SCAN
+    }
+
+    public enum PredicateType
+    {
+        JOIN, FILTER
     }
 
     public class LogicalNode
@@ -102,12 +108,15 @@ namespace MiniOptimizer.LogicPlan
 
         public string? RightOperand { get; set; } 
 
-        public LogicalSelectionNode(int id, Op op, string? column, string? value) : base(id)
+        public PredicateType PredicateType { get; set; }
+
+        public LogicalSelectionNode(int id, PredicateType type, Op op, string? column, string? value) : base(id)
         {
             Op = op;
             LeftOperand = column;
             RightOperand = value;
             Type = LogicalNodeType.SELECTION;
+            PredicateType = type;
         }
 
         public LogicalSelectionNode(int id) : base(id)

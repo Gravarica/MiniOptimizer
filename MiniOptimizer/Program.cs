@@ -1,6 +1,6 @@
-﻿using Antlr4.Runtime;
-using MiniOptimizer.Metadata;
+﻿using MiniOptimizer.Metadata;
 using MiniOptimizer.Test;
+using MiniOptimizer.Compiler;
 using System;
 using System.Runtime.InteropServices;
 
@@ -12,7 +12,7 @@ namespace MiniOptimizer
         {
             Catalog catalog = TestData.TestDataFromFile(false);
 
-            Parser parser = new Parser(catalog, false);
+            Parser parser = new Parser(catalog);
             while (true)
             {
                 Console.WriteLine("Unesite upit: ");

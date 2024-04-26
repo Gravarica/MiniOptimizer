@@ -32,9 +32,9 @@ namespace MiniOptimizer.LogicPlan
             return projectionNode;
         }
 
-        public LogicalNode CreateSelectionNode(Op op, string leftOperand, string rightOperand)
+        public LogicalNode CreateSelectionNode(Op op, PredicateType type, string leftOperand, string rightOperand)
         {
-            return new LogicalSelectionNode(GetNextNodeId(), op, leftOperand, rightOperand);
+            return new LogicalSelectionNode(GetNextNodeId(), type, op, leftOperand, rightOperand);
         }
 
         public LogicalNode CreateJoinNode(Op joinCondition, string leftJoinAttribute, string rightJoinAttribute)
@@ -66,12 +66,17 @@ namespace MiniOptimizer.LogicPlan
         {
             SetRootNode(ProjectionNodes.First());
 
-            if (SelectionNodes.Count > 0) 
+            if (SelectionNodes.Count > 0)
+            {
                 RootNode.Children.Add(SelectionNodes.First());
+                SelectionNodes.First().Parent = RootNode;
+            }
+                
 
             for (int i = 1; i < SelectionNodes.Count; i++)
             {
                 SelectionNodes[i - 1].Children.Add(SelectionNodes[i]);
+                SelectionNodes[i].Parent = SelectionNodes[i - 1];
             }
 
             LogicalNode ldtParent = SelectionNodes.Count > 0 ? SelectionNodes.Last() : RootNode;
@@ -86,6 +91,7 @@ namespace MiniOptimizer.LogicPlan
             LogicalProductNode root = CreateLeftDeepTree();
 
             ldtParent.Children.Add(root);
+            root.Parent = ldtParent;
 
         }
 

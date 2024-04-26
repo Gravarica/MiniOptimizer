@@ -40,6 +40,11 @@ namespace MiniOptimizer.Metadata
             return Columns.ContainsKey(column);
         }
 
+        public ColumnType GetColumnType(string column)
+        {
+            return Columns[column].DataType;
+        }
+
         public void PrintTableStats()
         {
             Console.WriteLine("Table: " + Name);
