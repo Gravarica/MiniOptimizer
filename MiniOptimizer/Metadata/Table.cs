@@ -40,9 +40,9 @@ namespace MiniOptimizer.Metadata
             return Columns.ContainsKey(column);
         }
 
-        public ColumnType GetColumnType(string column)
+        public MiniQLDataType GetMiniQLDataType(string column)
         {
-            return Columns[column].DataType;
+            return Columns[column].MiniQLDataType;
         }
 
         public void PrintTableStats()

@@ -88,11 +88,24 @@ namespace MiniOptimizer.LogicPlan
             }
             
             _nodeQueue = new Queue<LogicalScanNode>(ScanNodes);
-            LogicalProductNode root = CreateLeftDeepTree();
+            //LogicalProductNode root = CreateLeftDeepTree();
+            LogicalProductNode root = CreateTotalProductNode();
 
             ldtParent.Children.Add(root);
             root.Parent = ldtParent;
 
+        }
+
+        private LogicalProductNode CreateTotalProductNode()
+        {
+            LogicalProductNode initial = new LogicalProductNode(GetNextNodeId());
+
+            foreach (LogicalScanNode scanNode in ScanNodes) 
+            {
+                initial.Children.Add(scanNode);
+            }
+
+            return initial;
         }
 
         private LogicalProductNode CreateLeftDeepTree()
@@ -117,12 +130,56 @@ namespace MiniOptimizer.LogicPlan
             return current;
         }
 
+        public LogicalNode FindFirst(Func<LogicalNode, bool> predicate)
+        {
+            return FindFirstTraverseRecursive(RootNode, predicate);
+        }
+
+        // Finds the first node of given type
+        public LogicalNode FindFirstTraverseRecursive(LogicalNode node, Func<LogicalNode, bool> predicate)
+        {
+            if (node == null) return null;
+
+            if (predicate(node)) return node;
+
+            foreach(LogicalNode child in node.Children)
+            {
+                LogicalNode returnNode = FindFirstTraverseRecursive(child, predicate);
+                if (returnNode != null) return returnNode;
+            }
+
+            return null;
+        }
+
+        public List<LogicalNode> FindAll(Func<LogicalNode, bool> predicate)
+        {
+            return FindAllTraverseRecursive(RootNode, predicate);
+        }
+
+        public List<LogicalNode> FindAllTraverseRecursive(LogicalNode node, Func<LogicalNode, bool> predicate)
+        {
+            List<LogicalNode> matchingNodes = new List<LogicalNode>();
+
+            if (node == null)
+                return matchingNodes;
+
+            if (predicate(node))
+                matchingNodes.Add(node);
+
+            foreach (LogicalNode child in node.Children)
+            {
+                matchingNodes.AddRange(FindAllTraverseRecursive(child, predicate));
+            }
+
+            return matchingNodes;
+        }
+
         public void PrintLogicalPlan()
         {
             if (RootNode != null)
             {
                 Console.WriteLine("Logical Plan:");
-                PrintNode(RootNode, 0);
+                PrintNode(RootNode, "", true);
             }
             else
             {
@@ -130,56 +187,33 @@ namespace MiniOptimizer.LogicPlan
             }
         }
 
-        private void PrintNode(LogicalNode node, int indent)
+        private void PrintNode(LogicalNode node, string prefix, bool isLast)
         {
-            StringBuilder indentBuilder = new StringBuilder();
-            for (int i = 0; i < indent; i++)
+            Console.WriteLine(prefix + (isLast ? "└─ " : "├─ ") + GetNodeDescription(node));
+
+            var children = node.Children.ToList();
+            for (int i = 0; i < children.Count; i++)
             {
-                indentBuilder.Append("  ");
+                PrintNode(children[i], prefix + (isLast ? "   " : "│  "), i == children.Count - 1);
             }
+        }
 
-            string indentString = indentBuilder.ToString();
-
+        private string GetNodeDescription(LogicalNode node)
+        {
             switch (node)
             {
                 case LogicalProjectionNode projectionNode:
-                    Console.WriteLine($"{indentString}Projection: {string.Join(", ", projectionNode.Attributes)}");
-                    foreach (LogicalNode child in node.Children)
-                    {
-                        PrintNode(child, indent + 1);
-                    }
-                    break;
+                    return $"Projection: {string.Join(", ", projectionNode.Attributes)}";
                 case LogicalSelectionNode selectionNode:
-                    Console.WriteLine($"{indentString}Selection: {selectionNode.LeftOperand} {selectionNode.Op.ToString()} {selectionNode.RightOperand}");
-                    foreach (LogicalNode child in node.Children)
-                    {
-                        PrintNode(child, indent + 1);
-                    }
-                    break;
+                    return $"Selection: {selectionNode.LeftOperand} {selectionNode.Op.ToString()} {selectionNode.RightOperand}";
                 case LogicalJoinNode joinNode:
-                    Console.WriteLine($"{indentString}Join: {joinNode.LeftColumn} = {joinNode.RightColumn}");
-                    foreach (LogicalNode child in node.Children)
-                    {
-                        PrintNode(child, indent + 1);
-                    }
-                    break;
+                    return $"Join: {joinNode.LeftTable}.{joinNode.LeftColumn} = {joinNode.RightTable}.{joinNode.RightColumn}";
                 case LogicalProductNode productNode:
-                    Console.WriteLine($"{indentString}Product");
-                    foreach (LogicalNode child in node.Children)
-                    {
-                        PrintNode(child, indent + 1);
-                    }
-                    break;
+                    return "Product";
                 case LogicalScanNode scanNode:
-                    Console.WriteLine($"{indentString}Scan: {scanNode.TableName}");
-                    break;
+                    return $"Scan: {scanNode.TableName}";
                 default:
-                    Console.WriteLine($"{indentString}Unknown node type");
-                    foreach (LogicalNode child in node.Children)
-                    {
-                        PrintNode(child, indent + 1);
-                    }
-                    break;
+                    return "Unknown node type";
             }
         }
     }

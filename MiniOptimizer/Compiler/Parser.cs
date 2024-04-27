@@ -9,26 +9,26 @@ using System.Collections.Generic;
 
 namespace MiniOptimizer.Compiler
 {
-    public class Parser
+    public class SQLParser
     {
         private Catalog _catalog;
         public LogicalPlan _logicalPlan;
-        public SemanticAnalyzer SemanticAnalyzer;
+        public SemanticAnalyzer? SemanticAnalyzer;
+        private bool analyze = true;
 
-        public Parser(Catalog catalog)
+        public SQLParser(Catalog catalog)
         {
             _catalog=catalog;
-            SemanticAnalyzer = new SemanticAnalyzer(catalog);
         }
 
         public void TurnOffSemanticAnalysis()
         {
-            SemanticAnalyzer.TurnOff();
+            analyze = false;
         }
 
         public void TurnOnSemanticAnalysis()
         {
-            SemanticAnalyzer.TurnOn();
+            analyze = true;
         }
 
         public LogicalPlan Parse(string input)
@@ -49,6 +49,8 @@ namespace MiniOptimizer.Compiler
 
         private void VisitQuery(MiniQLParser.QueryContext context)
         {
+            // Svaki put kada se novi upit parsira, kreira se novi semanticki analyzer
+            SemanticAnalyzer = new SemanticAnalyzer(_catalog, analyze);
             List<string> projectedAttributes = VisitAttributeList(context.attributeList());
             VisitRelationList(context.relationList());
 
@@ -59,6 +61,8 @@ namespace MiniOptimizer.Compiler
             {
                 VisitCondition(context.condition());
             }
+
+            SemanticAnalyzer = null;
         }
 
         private List<string> VisitAttributeList(MiniQLParser.AttributeListContext context)

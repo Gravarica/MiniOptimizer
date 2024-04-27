@@ -23,7 +23,7 @@ namespace MiniOptimizer.LogicPlan
     {
 
         public int Id {  get; set; }
-        public List<LogicalNode> Children { get; private set; }
+        public HashSet<LogicalNode> Children { get; private set; }
         public LogicalNode? Parent { get; set; }
 
         public LogicalNodeType Type { get ; set; }
@@ -31,12 +31,12 @@ namespace MiniOptimizer.LogicPlan
         public LogicalNode(int id)
         {
             Id = id;
-            Children = new List<LogicalNode>();
+            Children = new HashSet<LogicalNode>();
         }
 
         public LogicalNode() 
         {
-            Children = new List<LogicalNode>();
+            Children = new HashSet<LogicalNode>();
         }
 
         public void AddChild(LogicalNode child)
@@ -130,13 +130,26 @@ namespace MiniOptimizer.LogicPlan
         public Op JoinOp { get; set; }
         public string? LeftColumn { get; set; }
         public string? RightColumn { get; set; }
+        public string? LeftTable { get; set; }
 
-        public LogicalJoinNode(int id, Op op, string? leftColumn, string? rightColumn) : base(id)
+        public string? RightTable { get; set; }
+
+        public LogicalJoinNode(int id, Op op, string? leftTable, string? rightTable) : base(id)
         {
             JoinOp = op;
-            LeftColumn = leftColumn;
-            RightColumn = rightColumn;
+            LeftTable = leftTable;
+            RightTable = rightTable;
             Type = LogicalNodeType.JOIN;
+        }
+
+        public LogicalJoinNode(int id, string? leftColumn, string? rightColumn, string? leftTable, string? rightTable) : base(id)
+        {
+            LeftTable = leftTable ?? string.Empty;
+            RightTable = rightTable ?? string.Empty;
+            LeftColumn = leftColumn ?? string.Empty;
+            RightColumn = rightColumn ?? string.Empty;
+            Type = LogicalNodeType.JOIN;
+            JoinOp = new Op(Predicate.EQ);
         }
     }
 

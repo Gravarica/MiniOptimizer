@@ -3,6 +3,8 @@ using MiniOptimizer.Test;
 using MiniOptimizer.Compiler;
 using System;
 using System.Runtime.InteropServices;
+using MiniOptimizer.Optimizer;
+using MiniOptimizer.LogicPlan;
 
 namespace MiniOptimizer
 {
@@ -11,8 +13,9 @@ namespace MiniOptimizer
         static void Main(string[] args)
         {
             Catalog catalog = TestData.TestDataFromFile(false);
-
-            Parser parser = new Parser(catalog);
+            RuleBasedOptimizer optimizer = new RuleBasedOptimizer(catalog);
+            SQLParser parser = new SQLParser(catalog);
+            parser.TurnOffSemanticAnalysis();
             while (true)
             {
                 Console.WriteLine("Unesite upit: ");
@@ -22,6 +25,10 @@ namespace MiniOptimizer
                 {
                     var logicalPlan = parser.Parse(query);
                     logicalPlan.CreateInitialPlan();
+                    logicalPlan.PrintLogicalPlan();
+                    logicalPlan = optimizer.CreateJoinNodes(logicalPlan);
+                    logicalPlan.PrintLogicalPlan();
+                    logicalPlan = optimizer.PushDownSelections(logicalPlan);
                     logicalPlan.PrintLogicalPlan();
                 } catch (Exception ex)
                 {

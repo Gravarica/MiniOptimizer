@@ -29,9 +29,9 @@ namespace MiniOptimizer.Metadata
             return Tables[tableName].CheckIfColumnExists(columnName);
         }
 
-        public ColumnType GetColumnType(string tableName, string columnName)
+        public MiniQLDataType GetMiniQLDataType(string tableName, string columnName)
         {
-            return Tables[tableName].GetColumnType(columnName);
+            return Tables[tableName].GetMiniQLDataType(columnName);
         }
 
         public List<string> GetTablesByColumn(string column)
