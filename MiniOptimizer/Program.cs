@@ -26,9 +26,9 @@ namespace MiniOptimizer
                     var logicalPlan = parser.Parse(query);
                     logicalPlan.CreateInitialPlan();
                     logicalPlan.PrintLogicalPlan();
-                    logicalPlan = optimizer.CreateJoinNodes(logicalPlan);
+                    optimizer.CreateJoinNodes(logicalPlan);
                     logicalPlan.PrintLogicalPlan();
-                    logicalPlan = optimizer.PushDownSelections(logicalPlan);
+                    optimizer.PushDownSelections(logicalPlan);
                     logicalPlan.PrintLogicalPlan();
                 } catch (Exception ex)
                 {

@@ -22,7 +22,7 @@ namespace MiniOptimizer.Optimizer
             _catalog = catalog;
         }
 
-        public LogicalPlan CreateJoinNodes(LogicalPlan logicalPlan)
+        public void CreateJoinNodes(LogicalPlan logicalPlan)
         {
             Func<LogicalNode, bool> isJoinPredicateSelection = node =>
                                         node is LogicalSelectionNode selectionNode && 
@@ -34,6 +34,17 @@ namespace MiniOptimizer.Optimizer
             
             LogicalNode productNode = logicalPlan.FindFirst(isProductNode);
 
+            if (productNode == null) return;
+
+            if (selectionJPNodes.Count == 0)
+            {
+                var root = logicalPlan.CreateLeftDeepTree();
+                productNode.Parent.AddChild(root);
+                productNode.Parent.RemoveChild(productNode);
+
+                return;
+            };
+
             List<LogicalJoinNode> joinNodes = new List<LogicalJoinNode>();
             LogicalNode topJoinNode = null;
 
@@ -41,13 +52,6 @@ namespace MiniOptimizer.Optimizer
             {
                 Tuple<string, string> leftQN = ParseHelper.ParseQualifiedName((selectionNode as LogicalSelectionNode).LeftOperand);
                 Tuple<string, string> rightQN = ParseHelper.ParseQualifiedName((selectionNode as LogicalSelectionNode).RightOperand);
-
-                
-                // Ne koristim
-                Func<LogicalNode, bool> scanHasTable = node => 
-                                            node is LogicalScanNode scanNode && 
-                                            (scanNode.TableName == leftQN.Item1 || scanNode.TableName == rightQN.Item1);
-
 
                 List<LogicalNode> scanNodes = new List<LogicalNode>();
                 bool foundLeftScan = false; 
@@ -58,49 +62,38 @@ namespace MiniOptimizer.Optimizer
                     if ((scanNode as LogicalScanNode).TableName == leftQN.Item1)
                     {
                         scanNodes.Add(scanNode);
-                        productNode.Children.Remove(scanNode);
-                        scanNode.Parent = null;
+                        productNode.RemoveChild(scanNode);
                         foundLeftScan = true;
-                    } else if ((scanNode as LogicalScanNode).TableName == rightQN.Item1)
+                    } 
+                    else if ((scanNode as LogicalScanNode).TableName == rightQN.Item1)
                     {
                         scanNodes.Add(scanNode);
-                        productNode.Children.Remove(scanNode);
-                        scanNode.Parent = null;
+                        productNode.RemoveChild(scanNode);
                         foundRightScan = true;
                     }
                 }
 
+                string tableName = foundLeftScan ? rightQN.Item1 : leftQN.Item1;
+                LogicalJoinNode joinNode  = new LogicalJoinNode(LogicalPlan.GetNextNodeId(), leftQN.Item2, rightQN.Item2, tableName, rightQN.Item1);
 
                 if (scanNodes.Count == 2)
                 {
-                    LogicalJoinNode joinNode = new LogicalJoinNode(LogicalPlan.GetNextNodeId(), leftQN.Item2, rightQN.Item2, leftQN.Item1, rightQN.Item1);
-                    var leftNode = scanNodes.First();
-                    leftNode.Parent = joinNode;
-                    var rightNode = scanNodes.Last();
-                    rightNode.Parent = joinNode;    
-                    joinNode.Children.Add(leftNode);
-                    joinNode.Children.Add(rightNode);
-                    topJoinNode = joinNode;
-                    joinNodes.Add(joinNode);
-                } else if (scanNodes.Count == 1)
+                    logicalPlan.AppendNode(scanNodes.First(), joinNode);
+                    logicalPlan.AppendNode(scanNodes.Last(), joinNode);
+                } 
+                else if (scanNodes.Count == 1)
                 {
-                    string tableName = foundLeftScan ? rightQN.Item1 : leftQN.Item1;
-                    LogicalJoinNode joinNode = new LogicalJoinNode(LogicalPlan.GetNextNodeId(), leftQN.Item2, rightQN.Item2, tableName, rightQN.Item1);
                     LogicalJoinNode existing = joinNodes.Find(n => n.LeftTable == tableName || n.RightTable == tableName);
-                    joinNode.Children.Add(existing);
-                    var node = scanNodes.First();
-                    node.Parent = joinNode;
-                    joinNode.Children.Add(node);
-                    existing.Parent = joinNode;
-                    topJoinNode = joinNode;
+                    logicalPlan.AppendNode(existing, joinNode);
+                    logicalPlan.AppendNode(scanNodes.First(), joinNode);
                 }
 
-                selectionNode.Parent.Children.Remove(selectionNode);
-                selectionNode.Parent.Children.Add(selectionNode.Children.First());
-                selectionNode.Children.First().Parent = selectionNode.Parent;
+                topJoinNode = joinNode;
+                joinNodes.Add(joinNode);
+                logicalPlan.RemoveNode(selectionNode);
             }
 
-            if (productNode.Children.Count > 0 && topJoinNode != null)
+            if (productNode?.Children.Count > 0 && topJoinNode != null)
             {
                 foreach (var child in productNode.Children) 
                 {
@@ -111,14 +104,12 @@ namespace MiniOptimizer.Optimizer
                 }
             }
 
-            topJoinNode.Parent = productNode.Parent;
-            productNode.Parent.Children.Remove(productNode);
-            topJoinNode.Parent.Children.Add(topJoinNode);
-
-            return logicalPlan;
+            topJoinNode.Parent = productNode?.Parent;
+            productNode.Parent?.Children.Remove(productNode);
+            topJoinNode.Parent?.Children.Add(topJoinNode);
         }
 
-        public LogicalPlan PushDownSelections(LogicalPlan logicalPlan)
+        public void PushDownSelections(LogicalPlan logicalPlan)
         {
             Func<LogicalNode, bool> isFilterSelection = node =>
                                         node is LogicalSelectionNode selectionNode &&
@@ -136,16 +127,14 @@ namespace MiniOptimizer.Optimizer
 
                 LogicalNode scanNode = logicalPlan.FindFirst(scanHasTable);
 
-                selectionNode.Parent.Children.Remove(selectionNode);
-                selectionNode.Parent.Children.Add(selectionNode.Children.First());
-                selectionNode.Children.First().Parent = selectionNode.Parent;
-                selectionNode.Children.Clear();
-                scanNode.Parent.Children.Remove(scanNode);
-                scanNode.Parent.Children.Add(selectionNode);
-                selectionNode.Parent = scanNode.Parent;
-                selectionNode.Children.Add(scanNode);
-                scanNode.Parent = selectionNode;
+                logicalPlan.MoveNode(selectionNode, scanNode);
             }
+
+        }
+
+        public LogicalPlan ReplicateProjections(LogicalPlan logicalPlan)
+        {
+
 
             return logicalPlan;
         }

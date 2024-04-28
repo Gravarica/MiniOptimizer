@@ -5,6 +5,7 @@ using System.ComponentModel.Design;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace MiniOptimizer.LogicPlan
 {
@@ -43,6 +44,12 @@ namespace MiniOptimizer.LogicPlan
         {
             Children.Add(child);
             child.Parent = this;
+        }
+
+        public void RemoveChild(LogicalNode child)
+        {
+            Children.Remove(child);
+            child.Parent = null;
         }
     }
 

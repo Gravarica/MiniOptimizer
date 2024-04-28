@@ -103,12 +103,60 @@ namespace MiniOptimizer.LogicPlan
             foreach (LogicalScanNode scanNode in ScanNodes) 
             {
                 initial.Children.Add(scanNode);
+                scanNode.Parent = initial;
             }
 
             return initial;
         }
 
-        private LogicalProductNode CreateLeftDeepTree()
+        public void RemoveNode(LogicalNode node)
+        {
+            // If node doesn't have a parent, just remove it from the plan
+            if (node.Parent == null)
+            {
+                node.Children.First().Parent = null;
+                node.Children.Clear();
+                return;
+            }
+
+            node.Parent.Children.Remove(node);
+            foreach (var child in node.Children)
+            {
+                node.Parent.Children.Add(child);
+            }
+            node.Children.First().Parent = node.Parent;
+            node.Children.Clear();
+        }
+
+        public void InsertNode(LogicalNode node, LogicalNode targetNode)
+        {
+            if (targetNode.Parent == null)
+            {
+                targetNode.Parent = node;
+                node.AddChild(targetNode);
+                return;
+            }
+
+            targetNode.Parent.Children.Remove(targetNode);
+            targetNode.Parent.Children.Add(node);
+            node.Parent = targetNode.Parent;
+            node.Children.Add(targetNode);
+            targetNode.Parent = node;
+        }
+
+        public void AppendNode(LogicalNode node, LogicalNode targetNode)
+        {
+            node.Parent = targetNode;
+            targetNode.Children.Add(node);
+        }
+
+        public void MoveNode(LogicalNode node, LogicalNode targetNode)
+        {
+            RemoveNode(node);
+            InsertNode(node, targetNode);
+        }
+
+        public LogicalProductNode CreateLeftDeepTree()
         {
 
             LogicalProductNode initial = new LogicalProductNode(GetNextNodeId());
