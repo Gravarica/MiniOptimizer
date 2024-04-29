@@ -4,7 +4,9 @@ using MiniOptimizer.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using System.Reflection.Metadata.Ecma335;
+using System.Security.AccessControl;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -132,11 +134,32 @@ namespace MiniOptimizer.Optimizer
 
         }
 
-        public LogicalPlan ReplicateProjections(LogicalPlan logicalPlan)
+        public void ReplicateProjections(LogicalPlan logicalPlan)
         {
+            // Nema potrebe raditi replikaciju projekcija ako ima samo jedna tabela 
+            if (logicalPlan.ScanNodes.Count == 1) return;
 
+            Dictionary<string, LogicalProjectionNode> projectionNodes = 
+                    logicalPlan.ReplicateProjectionByTable(logicalPlan.RootNode as LogicalProjectionNode);
 
-            return logicalPlan;
+            foreach (var projectionNode in projectionNodes)
+            {
+                Func<LogicalNode, bool> scanHasTable = node =>
+                node is LogicalScanNode scanNode &&
+                                            (scanNode.TableName == projectionNode.Key);
+
+           
+                LogicalNode scanNode = logicalPlan.FindFirst(scanHasTable);
+
+                if (scanNode.Parent is LogicalSelectionNode)
+                {
+                    logicalPlan.InsertNode(projectionNode.Value, scanNode.Parent);
+                } 
+                else
+                {
+                    logicalPlan.InsertNode(projectionNode.Value, scanNode);
+                }
+            }
         }
 
     }

@@ -15,6 +15,7 @@ namespace MiniOptimizer
             Catalog catalog = TestData.TestDataFromFile(false);
             RuleBasedOptimizer optimizer = new RuleBasedOptimizer(catalog);
             SQLParser parser = new SQLParser(catalog);
+            //TestMethods.TestProjectionSplitting();
             parser.TurnOffSemanticAnalysis();
             while (true)
             {
@@ -25,17 +26,24 @@ namespace MiniOptimizer
                 {
                     var logicalPlan = parser.Parse(query);
                     logicalPlan.CreateInitialPlan();
+                    Console.WriteLine("================= Initial Plan ================== ");
                     logicalPlan.PrintLogicalPlan();
                     optimizer.CreateJoinNodes(logicalPlan);
+                    Console.WriteLine("================= Creating joins ================== ");
                     logicalPlan.PrintLogicalPlan();
                     optimizer.PushDownSelections(logicalPlan);
+                    Console.WriteLine("================= Pushing down selections ================== ");
                     logicalPlan.PrintLogicalPlan();
-                } catch (Exception ex)
+                    optimizer.ReplicateProjections(logicalPlan);
+                    Console.WriteLine("================= Replicating projections ================== ");
+                    logicalPlan.PrintLogicalPlan();
+                }
+                catch (Exception ex)
                 {
                     Console.WriteLine(ex.Message);
                 }
             }
-            
+
         }
     }
 }

@@ -38,6 +38,8 @@ namespace MiniOptimizer.Compiler
             CommonTokenStream tokens = new CommonTokenStream(lexer);
             MiniQLParser parser = new MiniQLParser(tokens);
 
+            parser.AddErrorListener(new BaseErrorListener());
+
             var queryContext = parser.query();
 
             _logicalPlan = new LogicalPlan();

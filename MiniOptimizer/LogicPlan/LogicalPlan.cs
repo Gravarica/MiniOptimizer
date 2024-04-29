@@ -1,8 +1,11 @@
-﻿using System;
+﻿using MiniOptimizer.Utils;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.AccessControl;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace MiniOptimizer.LogicPlan
 {
@@ -222,6 +225,36 @@ namespace MiniOptimizer.LogicPlan
             return matchingNodes;
         }
 
+        public Dictionary<string, LogicalProjectionNode> ReplicateProjectionByTable(LogicalProjectionNode node)
+        {
+            Dictionary<string, LogicalProjectionNode> projectionNodes = new Dictionary<string, LogicalProjectionNode>();
+            foreach (string attribute in node.Attributes)
+            {
+                AddAttributeToProjection(attribute, projectionNodes);
+            }
+
+            foreach(var selectionNode in SelectionNodes)
+            {
+                if (selectionNode.PredicateType != PredicateType.JOIN) continue;
+
+                AddAttributeToProjection(selectionNode.LeftOperand, projectionNodes);
+                AddAttributeToProjection(selectionNode.RightOperand, projectionNodes);
+            }
+
+            return projectionNodes;
+        }
+
+        private void AddAttributeToProjection(string attribute, Dictionary<string, LogicalProjectionNode> projectionNodes)
+        {
+            var qualifiedName = ParseHelper.ParseQualifiedName(attribute);
+            if (!projectionNodes.ContainsKey(qualifiedName.Item1))
+            {
+                projectionNodes[qualifiedName.Item1] = new LogicalProjectionNode(GetNextNodeId());
+            }
+
+            projectionNodes[qualifiedName.Item1].AddAttribute(qualifiedName.Item2);
+        }
+
         public void PrintLogicalPlan()
         {
             if (RootNode != null)
@@ -246,7 +279,7 @@ namespace MiniOptimizer.LogicPlan
             }
         }
 
-        private string GetNodeDescription(LogicalNode node)
+        public string GetNodeDescription(LogicalNode node)
         {
             switch (node)
             {

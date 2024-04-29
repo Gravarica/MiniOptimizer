@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MiniOptimizer.Utils;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.Design;
@@ -55,22 +56,22 @@ namespace MiniOptimizer.LogicPlan
 
     public class LogicalProjectionNode : LogicalNode
     {
-        public List<string> Attributes { get; set; }
+        public HashSet<string> Attributes { get; set; }
 
         public LogicalProjectionNode(int id) : base(id)
         {
-            Attributes = new List<string>();
+            Attributes = new HashSet<string>();
             Type = LogicalNodeType.PROJECTION;
         }
 
         public LogicalProjectionNode(string Attribute)
         {
-            Attributes = new List<string>();
+            Attributes = new HashSet<string>();
             Attributes.Add(Attribute);
             Type = LogicalNodeType.PROJECTION;
         }
 
-        public LogicalProjectionNode(List<string> attributes)
+        public LogicalProjectionNode(HashSet<string> attributes)
         {
             Attributes = attributes;
         }
