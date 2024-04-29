@@ -13,8 +13,8 @@ relationList
     ;
 
 condition
-    : attribute EQ attribute           
-    | condition AND condition        
+    : condition AND condition
+    | attribute EQ attribute                    
     ;
 
 attribute
@@ -32,11 +32,10 @@ identifier
     ;
 
 constant
-    : NULL
-    | identifier
-    | (MINUS | PLUS)? INTEGER_VALUE
-    | (MINUS | PLUS)? DECIMAL_VALUE
+    : NUMERIC_LITERAL
     | QUOTED_STRING+
+    | identifier
+    | NULL
     ;
 
 SELECT: 'SELECT';
@@ -69,16 +68,22 @@ QUOTED_STRING
     | '"' ( ~('"'|'\\') | ('\\' .) )* '"'
     ;
 
+NUMERIC_LITERAL
+: (PLUS | MINUS)? INTEGER_VALUE
+| (PLUS | MINUS)? DECIMAL_VALUE
+;
+
 INTEGER_VALUE
-    : DIGIT+
-    ;
+: DIGIT+
+;
 
 DECIMAL_VALUE
-    : DECIMAL_DIGITS
-    ;
+: DIGIT+ '.' DIGIT*
+| '.' DIGIT+
+;
 
 IDENTIFIER
-    : (LETTER | DIGIT)+
+    : LETTER (LETTER | DIGIT)*
     ;
 
 fragment DECIMAL_DIGITS

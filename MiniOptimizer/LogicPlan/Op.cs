@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace MiniOptimizer
+namespace MiniOptimizer.LogicPlan
 {
 
     public enum Predicate { LT, GT, LE, GE, EQ, NE, LIKE };
@@ -13,7 +13,7 @@ namespace MiniOptimizer
     {
         public static Predicate Predicate { get; set; }
 
-        public static string ToString()
+        public string ToString()
         {
             switch (Predicate)
             {
@@ -36,9 +36,36 @@ namespace MiniOptimizer
             }
         }
 
+        private Predicate GetOp(string op)
+        {
+            switch(op)
+            {
+                case "=":
+                    return Predicate.EQ;
+                case ">":
+                    return Predicate.GT;
+                case "<":
+                    return Predicate.LT;
+                case "!=":
+                    return Predicate.NE;
+                case ">=":
+                    return Predicate.GE;
+                case "<=":
+                    return Predicate.LE;
+                case "LIKE":
+                    return Predicate.LIKE;
+                default: throw new ArgumentException();
+            }
+        }
+
         public static void PrintOp()
         {
             Console.WriteLine("Operation is: ", Predicate.ToString());
+        }
+
+        public Op (string predicate)
+        {
+            Predicate = GetOp(predicate);
         }
 
         public Op (Predicate predicate) 

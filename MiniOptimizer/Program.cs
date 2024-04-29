@@ -1,5 +1,10 @@
-﻿using Antlr4.Runtime;
+﻿using MiniOptimizer.Metadata;
+using MiniOptimizer.Test;
+using MiniOptimizer.Compiler;
 using System;
+using System.Runtime.InteropServices;
+using MiniOptimizer.Optimizer;
+using MiniOptimizer.LogicPlan;
 
 namespace MiniOptimizer
 {
@@ -7,13 +12,38 @@ namespace MiniOptimizer
     {
         static void Main(string[] args)
         {
-            var input = new AntlrInputStream("SELECT name FROM name WHERE name = name");
-            var lexer = new MiniQLLexer(input);
-            var tokens = new CommonTokenStream(lexer);
-            var parser = new MiniQLParser(tokens);
+            Catalog catalog = TestData.TestDataFromFile(false);
+            RuleBasedOptimizer optimizer = new RuleBasedOptimizer(catalog);
+            SQLParser parser = new SQLParser(catalog);
+            //TestMethods.TestProjectionSplitting();
+            parser.TurnOffSemanticAnalysis();
+            while (true)
+            {
+                Console.WriteLine("Unesite upit: ");
+                string query = Console.ReadLine();
+                if (query == "X") break;
+                try
+                {
+                    var logicalPlan = parser.Parse(query);
+                    logicalPlan.CreateInitialPlan();
+                    Console.WriteLine("================= Initial Plan ================== ");
+                    logicalPlan.PrintLogicalPlan();
+                    optimizer.CreateJoinNodes(logicalPlan);
+                    Console.WriteLine("================= Creating joins ================== ");
+                    logicalPlan.PrintLogicalPlan();
+                    optimizer.PushDownSelections(logicalPlan);
+                    Console.WriteLine("================= Pushing down selections ================== ");
+                    logicalPlan.PrintLogicalPlan();
+                    optimizer.ReplicateProjections(logicalPlan);
+                    Console.WriteLine("================= Replicating projections ================== ");
+                    logicalPlan.PrintLogicalPlan();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                }
+            }
 
-            var context = parser.query();
-            Console.WriteLine("Parsing complete");
         }
     }
 }
