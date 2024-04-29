@@ -24,6 +24,13 @@ namespace MiniOptimizer.Optimizer
             _catalog = catalog;
         }
 
+        public void Optimize(LogicalPlan logicalPlan)
+        {
+            CreateJoinNodes(logicalPlan);
+            PushDownSelections(logicalPlan);
+            ReplicateProjections(logicalPlan);
+        }
+
         public void CreateJoinNodes(LogicalPlan logicalPlan)
         {
             Func<LogicalNode, bool> isJoinPredicateSelection = node =>

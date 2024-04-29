@@ -15,7 +15,6 @@ namespace MiniOptimizer
             Catalog catalog = TestData.TestDataFromFile(false);
             RuleBasedOptimizer optimizer = new RuleBasedOptimizer(catalog);
             SQLParser parser = new SQLParser(catalog);
-            //TestMethods.TestProjectionSplitting();
             parser.TurnOffSemanticAnalysis();
             while (true)
             {
