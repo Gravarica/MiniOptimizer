@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MiniOptimizer.Exceptions;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -39,6 +40,22 @@ namespace MiniOptimizer.Metadata
             return (from table in Tables
                     where table.Value.CheckIfColumnExists(column)
                     select table.Key).ToList();
+        }
+
+        public TableStats GetTableStats(string tableName)
+        {
+            if (Tables.ContainsKey(tableName))
+            {
+                return Tables[tableName].Statistics;
+            }
+
+            throw new BaseException("Table statistics for table " + " do not exist.");
+        }
+
+        public bool HasIndexOnColumn(string tableName, string columnName) 
+        {
+            Table table = Tables[tableName];
+            return table.Indexes.Any(index => index.IndexedColumns.Contains(columnName));
         }
     }
 }

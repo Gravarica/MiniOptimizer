@@ -37,6 +37,7 @@ namespace MiniOptimizer.Utils
             var table = new Table(tableName);
 
             var lines = File.ReadAllLines(filePath);
+            Dictionary<string, HashSet<int>> distinctValues = new Dictionary<string, HashSet<int>>();
             if (lines.Length > 0)
             {
                 string header = lines[0];
@@ -46,6 +47,7 @@ namespace MiniOptimizer.Utils
                     bool isPrimaryKey = column.EndsWith("+");
                     string columnName = isPrimaryKey ? column.TrimEnd('+') : column;
                     table.AddColumn(new Column(columnName, isPrimaryKey));
+                    distinctValues[columnName] = new HashSet<int>();
                 }
             }
 
@@ -61,6 +63,7 @@ namespace MiniOptimizer.Utils
                         table.Statistics.ColumnStats[columnName] = new ColumnStats();
 
                     table.Statistics.ColumnStats[columnName].Values.Add(intValue);
+                    distinctValues[columnName].Add(intValue);
                     columnIndex++;
                 }
                 table.Statistics.RowCount++;
@@ -69,6 +72,7 @@ namespace MiniOptimizer.Utils
             for (int i = 0; i < table.Columns.Count; i++)
             {
                 string columnName = table.Columns.Keys.ElementAt(i);
+                table.Statistics.ColumnStats[columnName].DistinctValues = distinctValues[columnName].Count;
                 table.Statistics.ColumnStats[columnName].ComputeHistogram();
             }
 

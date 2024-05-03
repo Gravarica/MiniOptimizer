@@ -16,9 +16,17 @@ namespace MiniOptimizer.Metadata
     {
         public string Name { get; set; }
         public Table Table { get; set; }
-        public List<Column> IndexedColumns { get; set; } = new List<Column>();
+        public List<string> IndexedColumns { get; set; } = new List<string>();
         public IndexType IndexType { get; set; }
         public bool IsUnique { get; set; }
         public bool IsClustered { get; set; }
+        
+        public Index(string indexName, string columnName, Table table) {
+            IsClustered = true;
+            IndexedColumns.Add(columnName); 
+            Table = table;
+            Name = indexName;
+            Table.Columns[columnName].Indexes.Add(this);
+        }
     }
 }

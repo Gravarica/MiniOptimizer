@@ -43,7 +43,7 @@ namespace MiniOptimizer.Test
             {
                 FileGenerator.GenerateDataFile(filePath1, columns1, 500, new int[] { 1, 1990, 1000 }, new int[] { 500, 2004, 5000 });
                 FileGenerator.GenerateDataFile(filePath2, columns2, 200, new int[] { 1, 1, 1 }, new int[] { 500, 50, 12 });
-                FileGenerator.GenerateDataFile(filePath3, columns3, 200, new int[] { 1, 1, 1 }, new int[] { 500, 50, 12 });
+                FileGenerator.GenerateDataFile(filePath3, columns3, 200, new int[] { 1, 1, 1 }, new int[] { 500, 500, 12 });
                 FileGenerator.GenerateDataFile(filePath4, columns4, 200, new int[] { 1, 1 }, new int[] { 500, 50});
             }
 
@@ -61,8 +61,8 @@ namespace MiniOptimizer.Test
 
             Console.WriteLine("Catalog successfully created. Table stats: ");
 
-            //radnik.PrintTableStats();
-            //projekat.PrintTableStats();
+            radnik.PrintTableStats();
+            radproj.PrintTableStats();
 
             Catalog catalog = new Catalog(tables);
             return catalog;

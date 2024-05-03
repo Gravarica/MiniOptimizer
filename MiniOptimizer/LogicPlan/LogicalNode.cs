@@ -23,10 +23,13 @@ namespace MiniOptimizer.LogicPlan
 
     public class LogicalNode
     {
-
         public int Id {  get; set; }
         public HashSet<LogicalNode> Children { get; private set; }
         public LogicalNode? Parent { get; set; }
+
+        public double Cardinality { get; set; }
+
+        public Dictionary<string, long> DistinctValues { get; set; }
 
         public LogicalNodeType Type { get ; set; }
 
@@ -140,7 +143,7 @@ namespace MiniOptimizer.LogicPlan
         public string? RightColumn { get; set; }
         public string? LeftTable { get; set; }
 
-        public string? RightTable { get; set; }
+        public string? RightTable { get; set; }    
 
         public LogicalJoinNode(int id, Op op, string? leftTable, string? rightTable) : base(id)
         {

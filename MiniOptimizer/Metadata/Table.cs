@@ -52,6 +52,7 @@ namespace MiniOptimizer.Metadata
             for (int i = 0; i < Columns.Count; i++)
             {
                 string columnName = Columns.Keys.ElementAt(i);
+                Console.WriteLine("\t Column: " + columnName);
                 Statistics.ColumnStats[columnName].PrintHistogram();
             }
         }

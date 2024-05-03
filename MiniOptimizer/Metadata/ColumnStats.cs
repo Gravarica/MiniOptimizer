@@ -8,9 +8,10 @@ namespace MiniOptimizer.Metadata
 {
     public class HistogramBucket
     {
-        public object LowerBound { get; set; }
-        public object UpperBound { get; set; }
+        public int LowerBound { get; set; }
+        public int UpperBound { get; set; }
         public long RowCount { get; set; }
+
     }
 
     public class Histogram
@@ -35,15 +36,13 @@ namespace MiniOptimizer.Metadata
             Histogram = new Histogram();
         }
 
-        // TO DO: 
-        // Create Histograms for int and string values
-        // Figure out optimal number of buckets to create 
-        // Implement Zipfian Distribution
         public void ComputeHistogram()
         {
-            int minValue = Values.Min();
+            int minValue = Values.Min() ;
             int maxValue = Values.Max();
             int range = (maxValue - minValue) / 10 + 1;
+
+            minValue = minValue - minValue % range + 1;
 
             for (int i = 0; i < 10; i++)
             {
@@ -59,7 +58,7 @@ namespace MiniOptimizer.Metadata
             Console.WriteLine("Histogram Data:");
             foreach (var bucket in Histogram.Buckets)
             {
-                Console.WriteLine($"Range {bucket.LowerBound} to {bucket.UpperBound}: {bucket.RowCount} records");
+                Console.WriteLine($"\t\t Range {bucket.LowerBound} to {bucket.UpperBound}: {bucket.RowCount} records");
             }
         }
     }
