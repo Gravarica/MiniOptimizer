@@ -20,9 +20,9 @@ namespace MiniOptimizer.Optimizer
             _catalog = catalog;
         }
 
-        public double EstimateCardinality(LogicalNode node)
+        public long EstimateCardinality(LogicalNode node)
         {
-            double cardinality;
+            long cardinality;
             switch (node.Type) 
             {
                 case LogicalNodeType.SCAN:
@@ -48,7 +48,7 @@ namespace MiniOptimizer.Optimizer
             return cardinality;
         }
 
-        public double EstimateScanCardinality(LogicalScanNode node)
+        public long EstimateScanCardinality(LogicalScanNode node)
         {
             var tableStats = _catalog.GetTableStats(node.TableName);
             node.DistinctValues = CostModelUtil.TakeScanDistinctValues(tableStats);
@@ -56,7 +56,7 @@ namespace MiniOptimizer.Optimizer
             return tableStats.RowCount;
         }
 
-        public double EstimateProjectionCardinality(LogicalProjectionNode node)
+        public long EstimateProjectionCardinality(LogicalProjectionNode node)
         {
             if (node.Children.Count == 0)
                 return 0;
@@ -65,7 +65,7 @@ namespace MiniOptimizer.Optimizer
             return node.Children.First().Cardinality;
         }
 
-        public double EstimateSelectionCardinality(LogicalSelectionNode node)
+        public long EstimateSelectionCardinality(LogicalSelectionNode node)
         {
             if (node.Children.Count == 0) 
                 return 0;
@@ -75,7 +75,7 @@ namespace MiniOptimizer.Optimizer
 
             var qualifiedName = ParseHelper.ParseQualifiedName(node.LeftOperand);
 
-            double cardinality;
+            long cardinality;
             if (node.Children.First() is LogicalScanNode scanNode)
             {
                 var tableStats = _catalog.GetTableStats(scanNode.TableName);
@@ -103,7 +103,7 @@ namespace MiniOptimizer.Optimizer
             return cardinality;
         }
 
-        private double EstimateJoinCardinality(LogicalJoinNode node)
+        private long EstimateJoinCardinality(LogicalJoinNode node)
         {
             // Pretpostavka je da ce oba deteta biti relacije - Ovo je zbog DP algoritma
             if (!(node.Children.First() is LogicalScanNode leftScanNode) ||
@@ -129,7 +129,7 @@ namespace MiniOptimizer.Optimizer
             );
         }
 
-        private double EstimateJoinCardinalityForIntermediateRelations(LogicalJoinNode node)
+        private long EstimateJoinCardinalityForIntermediateRelations(LogicalJoinNode node)
         {
             // Ne moram da proveravam, znam da je desni tabela a levi join 
             var leftCardinality = node.Children.First().Cardinality;
@@ -159,12 +159,12 @@ namespace MiniOptimizer.Optimizer
             return leftCardinality * rightCardinality / Math.Max(rightDistinctValues, leftDistinctValues);
         }
 
-        private double EstimateProductCardinality(LogicalProductNode node)
+        private long EstimateProductCardinality(LogicalProductNode node)
         {
             return node.Children.Last().Cardinality * node.Children.First().Cardinality;
         }
 
-        private double EstimateSelectionCardinalityFromHistogram(Histogram histogram, object value, double baseCardinality)
+        private long EstimateSelectionCardinalityFromHistogram(Histogram histogram, object value, double baseCardinality)
         {
             double selectivity = 0;
 
@@ -172,14 +172,14 @@ namespace MiniOptimizer.Optimizer
             {
                 if (bucket.LowerBound <= (int)value && bucket.UpperBound >= (int)value)
                 {
-                    selectivity += (double)bucket.RowCount / baseCardinality;
+                    selectivity += bucket.RowCount / baseCardinality;
                 }
             }
 
-            return baseCardinality * selectivity;
+            return (long) Math.Ceiling(baseCardinality * selectivity);
         }
 
-        private double EstimateCardinalityForEquiJoin(Histogram leftHistogram, Histogram rightHistogram, double leftCardinality, double rightCardinality)
+        private long EstimateCardinalityForEquiJoin(Histogram leftHistogram, Histogram rightHistogram, double leftCardinality, double rightCardinality)
         {
             double totalCardinality = 0;
 
@@ -196,7 +196,7 @@ namespace MiniOptimizer.Optimizer
                 }
             }
 
-            return totalCardinality;
+            return (long) Math.Ceiling(totalCardinality);
         }
     }
 }

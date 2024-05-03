@@ -27,7 +27,7 @@ namespace MiniOptimizer.LogicPlan
         public HashSet<LogicalNode> Children { get; private set; }
         public LogicalNode? Parent { get; set; }
 
-        public double Cardinality { get; set; }
+        public long Cardinality { get; set; }
 
         public Dictionary<string, long> DistinctValues { get; set; }
 
