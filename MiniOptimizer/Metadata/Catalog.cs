@@ -62,10 +62,19 @@ namespace MiniOptimizer.Metadata
         {
             Table table = Tables[tableName];
             bool found = true;
+
+
             foreach (var index in table.Indexes)
             {
+                if (index.IndexedColumns.Count != columnNames.Count)
+                {
+                    found = false;
+                    continue;
+                }
+
                 foreach (var indexedColumn in index.IndexedColumns)
                 {
+
                     if (!columnNames.Contains(indexedColumn))
                     {
                         found = false;
