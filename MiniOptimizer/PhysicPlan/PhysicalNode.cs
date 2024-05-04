@@ -1,66 +1,171 @@
 ﻿using MiniOptimizer.LogicPlan;
+using MiniOptimizer.Metadata;
+using MiniOptimizer.Optimizer;
+using MiniOptimizer.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace MiniOptimizer.PhysicPlan
 {
+
     public abstract class PhysicalNode
     {
+        public long Cost { get; set; }
+
+        public PhysicalNode Parent { get; set; }
+
         public HashSet<PhysicalNode> Children { get; set; } = new HashSet<PhysicalNode>();
 
-        public abstract long EstimateExecutionCost();
+        public abstract long EstimateExecutionCost(TableStats? statistics = null);
 
         public abstract void Execute(); // Razmisliti o ovome za dalje
+
+        public abstract string GetTableName(int position);
+
+        public void AddChild(PhysicalNode child)
+        {
+            Children.Add(child);
+            child.Parent = this;
+        }
+
+        public abstract void Print();
     }
 
-    public class SequentialScan : PhysicalNode
+    public enum AccessMethod { SEQ_SCAN, INDEX_SEEK, INDEX_SCAN}
+
+    public class PhysicalScanNode : PhysicalNode
     {
         public string TableName { get; set; }
 
-        public override long EstimateExecutionCost()
+        public AccessMethod AccessMethod { get; set; }
+
+        public PhysicalScanNode() { }
+
+        public PhysicalScanNode(string tableName, AccessMethod accessMethod)
+        {
+            TableName=tableName;
+            AccessMethod=accessMethod;
+        }
+
+        public override long EstimateExecutionCost(TableStats statistics)
         {
             throw new NotImplementedException();
+        }
+
+        public override void Execute()
+        {
+            Console.WriteLine("Access method for the table");
+        }
+
+        public override string GetTableName(int position = 0)
+        {
+            return TableName;
+        }
+
+        public override void Print()
+        {
+            Console.WriteLine("Physical Scan Node");
+        }
+    }
+
+    public class SequentialScan : PhysicalScanNode
+    {
+        public SequentialScan() { }
+
+        public SequentialScan(string tableName) : base(tableName, AccessMethod.SEQ_SCAN) { } 
+
+        public override long EstimateExecutionCost(TableStats statistics)
+        {
+            return statistics.GetNumberOfBlocks();
         }
 
         public override void Execute()
         {
             Console.WriteLine("Executing Sequential scan...");
         }
+
+        public override void Print()
+        {
+            Console.WriteLine("Sequential Scan - Table: " + TableName);
+        }
     }
 
     // Index seek sluzi ako se polja koja se projektuju nalaze u indeksnoj strukturi
-    public class IndexSeek : PhysicalNode
+    // Ovo znaci -> Citaj samo iz indeksa, ne moras da pristupis tabeli
+    public class IndexSeek : PhysicalScanNode
     {
         public string IndexName { get; set; }
 
-        public override long EstimateExecutionCost()
+        public IndexSeek() { 
+            AccessMethod = AccessMethod.INDEX_SEEK;
+        }
+
+        public IndexSeek(string tableName, string indexName) : base(tableName, AccessMethod.INDEX_SEEK)
         {
-            throw new NotImplementedException();
+            IndexName=indexName;
+        }
+
+        public override long EstimateExecutionCost(TableStats statistics)
+        {
+            return 0; // Force IndexSeek if it is possible -> IndexSeek means that it will read all data from the index only
         }
 
         public override void Execute()
         {
             Console.WriteLine("Executing Index seek...");
         }
+
+        public override void Print()
+        {
+            Console.WriteLine("Index Seek - Table: " + TableName + " Index: " + IndexName);
+        }
     }
 
-    public class IndexAccessScan : PhysicalNode
+    public class IndexScan : PhysicalScanNode
     {
-        public string TableName { get; set; }
         public string IndexName { get; set; }
 
-        public override long EstimateExecutionCost()
+        public Op Op { get; set; }
+
+        public IndexScan() { 
+            AccessMethod= AccessMethod.INDEX_SCAN;  
+        }
+
+        public IndexScan(string tableName, string indexName, Op op) : base(tableName, AccessMethod.INDEX_SCAN)
         {
-            throw new NotImplementedException();
+            IndexName = indexName;
+            Op = op;
+        }
+
+        public IndexScan(string tableName, string indexName) : base(tableName, AccessMethod.INDEX_SCAN)
+        {
+            IndexName = indexName;
+            Op = new Op(Predicate.EQ);
+        }
+
+        public override long EstimateExecutionCost(TableStats statistics)
+        {
+            long distinctValues = statistics.GetDistinctValues(IndexName);
+            if (Op.Predicate == Predicate.EQ) 
+                return statistics.GetNumberOfBlocks() / distinctValues;
+
+            return statistics.GetNumberOfBlocks() / 3;
         }
 
         public override void Execute()
         {
             Console.WriteLine("Executing Index access scan...");
         }
+
+        public override void Print()
+        {
+            Console.WriteLine("Index Scan - Table: " + TableName + " Index: " + IndexName + " Op: " + Op.Predicate.ToString());
+        }
+
     }
 
     public class Filter : PhysicalNode
@@ -85,14 +190,26 @@ namespace MiniOptimizer.PhysicPlan
             RightOperand = rightOperand;
         }
 
-        public override long EstimateExecutionCost()
+        public override long EstimateExecutionCost(TableStats? stats = null)
         {
-            throw new NotImplementedException();
+            return Children.First().EstimateExecutionCost(stats);
         }
 
         public override void Execute()
         {
             Console.WriteLine("Executing Filter based on condition...");
+        }
+
+        public override string GetTableName(int position = 0)
+        {
+            var qualifiedName = ParseHelper.ParseQualifiedName(LeftOperand);
+            return qualifiedName.Item1;
+        }
+
+        public override void Print()
+        {
+            Console.WriteLine("Filter - : " + LeftOperand + " " + Op.Predicate.ToString() + " " + RightOperand + " on table: " + GetTableName());
+            Children.First().Print();
         }
     }
 
@@ -105,14 +222,36 @@ namespace MiniOptimizer.PhysicPlan
             attributes.ForEach(a => Attributes.Add(a));
         }
 
-        public override long EstimateExecutionCost()
+        public PhysicalProjection(HashSet<string> attributes)
         {
-            throw new NotImplementedException();
+            Attributes = attributes;
+        }
+
+        public override long EstimateExecutionCost(TableStats? statistics = null)
+        {
+            return (Attributes.Count * 4 / statistics.TupleSize) * Children.First().EstimateExecutionCost(statistics);
         }
 
         public override void Execute()
         {
             Console.WriteLine("Executing Physical projection...");
+            Children.First().Print();
+        }
+
+        public override string GetTableName(int position = 0)
+        {
+            return Children.First().GetTableName(position);
+        }
+
+        public override void Print()
+        {
+            Console.Write("Projection - : ");
+            foreach (var item in Attributes)
+            {
+                Console.Write(item + " ");
+            }
+            Console.Write("\n");
+            Children.First().Print();
         }
     }
 
@@ -143,7 +282,7 @@ namespace MiniOptimizer.PhysicPlan
             Type = type;
         }
 
-        public override long EstimateExecutionCost()
+        public override long EstimateExecutionCost(TableStats? statistics = null)
         {
             throw new NotImplementedException();
         }
@@ -151,6 +290,16 @@ namespace MiniOptimizer.PhysicPlan
         public override void Execute()
         {
             Console.WriteLine("Executing join between");
+        }
+
+        public override string GetTableName(int position)
+        {
+            return position == 0 ? LeftTable : RightTable;
+        }
+
+        public override void Print()
+        {
+            Console.WriteLine("Join: " + LeftTable + " |x| " + RightTable + " ON " + LeftColumn + " = " + RightColumn);
         }
     }
 
@@ -161,7 +310,7 @@ namespace MiniOptimizer.PhysicPlan
         {
         }
 
-        public override long EstimateExecutionCost()
+        public override long EstimateExecutionCost(TableStats? statistics = null)
         {
             return base.EstimateExecutionCost();
         }
@@ -169,6 +318,11 @@ namespace MiniOptimizer.PhysicPlan
         public override void Execute()
         {
             base.Execute();
+        }
+
+        public override void Print()
+        {
+            Console.WriteLine("Nested Loop Join: " + LeftTable + " |x| " + RightTable + " ON " + LeftColumn + " = " + RightColumn);
         }
     }
 
@@ -179,7 +333,7 @@ namespace MiniOptimizer.PhysicPlan
         {
         }
 
-        public override long EstimateExecutionCost()
+        public override long EstimateExecutionCost(TableStats? statistics = null)
         {
             return base.EstimateExecutionCost();
         }
@@ -187,6 +341,11 @@ namespace MiniOptimizer.PhysicPlan
         public override void Execute()
         {
             base.Execute();
+        }
+
+        public override void Print()
+        {
+            Console.WriteLine("Sort Merge Join: " + LeftTable + " |x| " + RightTable + " ON " + LeftColumn + " = " + RightColumn);
         }
     }
 
@@ -197,7 +356,7 @@ namespace MiniOptimizer.PhysicPlan
         {
         }
 
-        public override long EstimateExecutionCost()
+        public override long EstimateExecutionCost(TableStats? statistics = null)
         {
             return base.EstimateExecutionCost();
         }
@@ -205,6 +364,11 @@ namespace MiniOptimizer.PhysicPlan
         public override void Execute()
         {
             base.Execute();
+        }
+
+        public override void Print()
+        {
+            Console.WriteLine("Index Nested Loop Join: " + LeftTable + " |x| " + RightTable + " ON " + LeftColumn + " = " + RightColumn);
         }
     }
 
@@ -215,7 +379,7 @@ namespace MiniOptimizer.PhysicPlan
         {
         }
 
-        public override long EstimateExecutionCost()
+        public override long EstimateExecutionCost(TableStats? statistics = null)
         {
             return base.EstimateExecutionCost();
         }
@@ -223,6 +387,11 @@ namespace MiniOptimizer.PhysicPlan
         public override void Execute()
         {
             base.Execute();
+        }
+
+        public override void Print()
+        {
+            Console.WriteLine("Hash Join: " + LeftTable + " |x| " + RightTable + " ON " + LeftColumn + " = " + RightColumn);
         }
     }
 }

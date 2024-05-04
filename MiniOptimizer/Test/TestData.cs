@@ -41,18 +41,18 @@ namespace MiniOptimizer.Test
 
             if (generate)
             {
-                FileGenerator.GenerateDataFile(filePath1, columns1, 5000, new int[] { 1, 1990, 1000 }, new int[] { 5000, 2004, 5000 });
-                FileGenerator.GenerateDataFile(filePath2, columns2, 2000, new int[] { 1, 1, 1 }, new int[] { 2000, 50, 12 });
-                FileGenerator.GenerateDataFile(filePath3, columns3, 2000, new int[] { 1, 1, 1 }, new int[] { 5000, 2000, 12 });
-                FileGenerator.GenerateDataFile(filePath4, columns4, 2000, new int[] { 1, 1 }, new int[] { 5000, 500});
+                FileGenerator.GenerateDataFile(filePath1, columns1, 50000, new int[] { 1, 1990, 1000 }, new int[] { 50000, 2004, 5000 });
+                FileGenerator.GenerateDataFile(filePath2, columns2, 20000, new int[] { 1, 1, 1 }, new int[] { 20000, 50, 12 });
+                FileGenerator.GenerateDataFile(filePath3, columns3, 20000, new int[] { 1, 1, 1 }, new int[] { 50000, 20000, 12 });
+                FileGenerator.GenerateDataFile(filePath4, columns4, 20000, new int[] { 1, 1 }, new int[] { 50000, 10});
             }
 
             Console.WriteLine("Files generated successfully.");
 
-            Table radnik = FileGenerator.CreateTableFromFile(filePath1);
-            Table projekat = FileGenerator.CreateTableFromFile(filePath2);
-            Table radproj = FileGenerator.CreateTableFromFile(filePath3);
-            Table angazovanje = FileGenerator.CreateTableFromFile(filePath4);
+            Table radnik = FileGenerator.CreateTableFromFile(filePath1, true, ["mbr"]);
+            Table projekat = FileGenerator.CreateTableFromFile(filePath2, true, ["spr"]);
+            Table radproj = FileGenerator.CreateTableFromFile(filePath3, false, ["mbr", "spr"]);
+            Table angazovanje = FileGenerator.CreateTableFromFile(filePath4, false, ["mbr"]);
 
             tables["radnik"] = radnik;
             tables["projekat"] = projekat;

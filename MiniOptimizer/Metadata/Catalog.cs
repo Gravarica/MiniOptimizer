@@ -9,7 +9,7 @@ namespace MiniOptimizer.Metadata
 {
     public class Catalog
     {
-        Dictionary<string, Table> Tables{ get ; set; }
+        public Dictionary<string, Table> Tables{ get ; set; }
         public Catalog() 
         {
             Tables = [];
@@ -56,6 +56,34 @@ namespace MiniOptimizer.Metadata
         {
             Table table = Tables[tableName];
             return table.Indexes.Any(index => index.IndexedColumns.Contains(columnName));
+        }
+
+        public bool HasCompoundIndex(string tableName, HashSet<string> columnNames)
+        {
+            Table table = Tables[tableName];
+            bool found = true;
+            foreach (var index in table.Indexes)
+            {
+                foreach (var indexedColumn in index.IndexedColumns)
+                {
+                    if (!columnNames.Contains(indexedColumn))
+                    {
+                        found = false;
+                        continue;
+                    }
+                }
+            }
+            return found;
+        }
+
+        public Index GetIndex(string tableName, string column)
+        {
+            return Tables[tableName].GetIndex(column);
+        }
+
+        public Index GetCompoundIndex(string tableName, HashSet<string> columns)
+        {
+            return Tables[tableName].GetCompoundIndex(columns);
         }
     }
 }

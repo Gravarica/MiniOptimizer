@@ -1,6 +1,7 @@
 ﻿using MiniOptimizer.Exceptions;
 using MiniOptimizer.LogicPlan;
 using MiniOptimizer.Metadata;
+using MiniOptimizer.PhysicPlan;
 using MiniOptimizer.Utils;
 using System;
 using System.Collections.Generic;
@@ -46,6 +47,52 @@ namespace MiniOptimizer.Optimizer
 
             node.Cardinality = cardinality;
             return cardinality;
+        }
+
+        public long EstimateCost(PhysicalNode physicalNode) {
+            long cost = 0; 
+            switch(physicalNode)
+            {
+                case PhysicalScanNode scanNode:
+                    cost = EstimatePhysicalScanCost(scanNode);
+                    break;
+                case Filter filterNode:
+                    cost = EstimateFilterCost(filterNode);
+                    break;
+                case PhysicalJoin joinNode:
+                    cost = EstimatePhysicalJoinCost(joinNode);
+                    break;
+                case PhysicalProjection physProjNode:
+                    cost = EstimatePhysicalProjectionCost(physProjNode);
+                    break;
+                default:
+                    throw new BaseException("Invalid node type.");
+            }
+
+            return cost;
+        }
+
+        private long EstimatePhysicalJoinCost(PhysicalJoin node)
+        {
+            return 0;
+        }
+
+        private long EstimatePhysicalProjectionCost(PhysicalProjection physicalProjection)
+        {
+            TableStats statistics = _catalog.GetTableStats(physicalProjection.GetTableName());
+            return physicalProjection.EstimateExecutionCost(statistics);
+        }
+
+        private long EstimateFilterCost(Filter filter)
+        {
+            TableStats statistics = _catalog.GetTableStats(filter.GetTableName());
+            return filter.EstimateExecutionCost(statistics);
+        }
+
+        private long EstimatePhysicalScanCost(PhysicalScanNode scanNode)
+        {
+            TableStats statistics = _catalog.GetTableStats(scanNode.GetTableName());
+            return scanNode.EstimateExecutionCost(statistics);
         }
 
         public long EstimateScanCardinality(LogicalScanNode node)

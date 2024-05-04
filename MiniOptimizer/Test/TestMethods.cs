@@ -16,7 +16,9 @@ namespace MiniOptimizer.Test
         public static void TestRuleBasedOptimizer()
         {
             Catalog catalog = TestData.TestDataFromFile(true);
-            RuleBasedOptimizer optimizer = new RuleBasedOptimizer(catalog);
+            RuleBasedOptimizer rbo = new RuleBasedOptimizer(catalog);
+            CostModel costModel = new CostModel(catalog);
+            CostBasedOptimizer cbo = new CostBasedOptimizer(catalog, costModel); 
             SQLParser parser = new SQLParser(catalog);
             parser.TurnOffSemanticAnalysis();
             while (true)
@@ -30,15 +32,18 @@ namespace MiniOptimizer.Test
                     logicalPlan.CreateInitialPlan();
                     Console.WriteLine("================= Initial Plan ================== ");
                     logicalPlan.PrintLogicalPlan();
-                    optimizer.CreateJoinNodes(logicalPlan);
+                    rbo.CreateJoinNodes(logicalPlan);
                     Console.WriteLine("================= Creating joins ================== ");
                     logicalPlan.PrintLogicalPlan();
-                    optimizer.PushDownSelections(logicalPlan);
+                    rbo.PushDownSelections(logicalPlan);
                     Console.WriteLine("================= Pushing down selections ================== ");
                     logicalPlan.PrintLogicalPlan();
-                    optimizer.ReplicateProjections(logicalPlan);
+                    rbo.ReplicateProjections(logicalPlan);
                     Console.WriteLine("================= Replicating projections ================== ");
                     logicalPlan.PrintLogicalPlan();
+                    Console.WriteLine("================= Selecting access methods ================== ");
+                    var physicalPlan = cbo.SelectAccessMethods(logicalPlan);
+                    physicalPlan.Print();
                 }
                 catch (Exception ex)
                 {

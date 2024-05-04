@@ -17,7 +17,7 @@ namespace MiniOptimizer.Metadata
         public bool IsNullable { get; set; }
         public bool IsPrimaryKey { get; set; }
         public ForeignKeyConstraint? ForeignKeyConstraint { get; set; }
-        public List<Index> Indexes { get; set; } = new List<Index>();
+        //public List<Index> Indexes { get; set; } = new List<Index>();
 
         public Column(string name, MiniQLDataType MiniQLDataType, bool isNullable = false, bool isPrimaryKey = false)
         {

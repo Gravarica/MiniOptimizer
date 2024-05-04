@@ -6,6 +6,7 @@ using System.ComponentModel.Design;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml;
 using System.Xml.Linq;
 
 namespace MiniOptimizer.LogicPlan
@@ -55,6 +56,11 @@ namespace MiniOptimizer.LogicPlan
             Children.Remove(child);
             child.Parent = null;
         }
+
+        public virtual string GetTableName(int position = 0)
+        {
+            return "";
+        }
     }
 
     public class LogicalProjectionNode : LogicalNode
@@ -89,6 +95,11 @@ namespace MiniOptimizer.LogicPlan
             Attributes.Remove(Attribute);
             return new LogicalProjectionNode(Attribute);
         }
+
+        public override string GetTableName(int position = 0)
+        {
+            return Children.First().GetTableName(position);
+        }
     }
 
     public class LogicalScanNode : LogicalNode 
@@ -108,6 +119,11 @@ namespace MiniOptimizer.LogicPlan
         {
             TableId=tableId;
             Type = LogicalNodeType.SCAN;
+        }
+
+        public override string GetTableName(int position = 0)
+        {
+            return TableName;
         }
     }
 
@@ -133,6 +149,19 @@ namespace MiniOptimizer.LogicPlan
         public LogicalSelectionNode(int id) : base(id)
         {
             Type = LogicalNodeType.SELECTION;
+        }
+
+        public override string GetTableName(int position = 0)
+        {
+            var qualifiedName = ParseHelper.ParseQualifiedName(LeftOperand);
+            return qualifiedName.Item1;
+        }
+
+        public string GetColumnName(int position)
+        {
+            var name = position == 0 ? LeftOperand : RightOperand;
+            var qualifiedName = ParseHelper.ParseQualifiedName(name);
+            return qualifiedName.Item2;
         }
     }
 
@@ -161,6 +190,11 @@ namespace MiniOptimizer.LogicPlan
             RightColumn = rightColumn ?? string.Empty;
             Type = LogicalNodeType.JOIN;
             JoinOp = new Op(Predicate.EQ);
+        }
+
+        public override string GetTableName(int position)
+        {
+            return position == 0 ? LeftTable : RightTable;
         }
     }
 
