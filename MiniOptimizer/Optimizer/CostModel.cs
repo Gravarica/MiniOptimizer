@@ -150,6 +150,11 @@ namespace MiniOptimizer.Optimizer
             return cardinality;
         }
 
+        //public long EstimatePotentialJoinCardinality(LogicalNode node1, LogicalNode node2)
+        //{
+
+        //}
+
         private long EstimateJoinCardinality(LogicalJoinNode node)
         {
             // Pretpostavka je da ce oba deteta biti relacije - Ovo je zbog DP algoritma

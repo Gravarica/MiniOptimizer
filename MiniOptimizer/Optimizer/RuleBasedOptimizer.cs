@@ -83,7 +83,7 @@ namespace MiniOptimizer.Optimizer
                 }
 
                 string tableName = foundLeftScan ? rightQN.Item1 : leftQN.Item1;
-                LogicalJoinNode joinNode  = new LogicalJoinNode(LogicalPlan.GetNextNodeId(), leftQN.Item2, rightQN.Item2, tableName, rightQN.Item1);
+                LogicalJoinNode joinNode  = new LogicalJoinNode(LogicalPlan.GetNextNodeId(), leftQN.Item2, rightQN.Item2, leftQN.Item1, rightQN.Item1);
 
                 if (scanNodes.Count == 2)
                 {
@@ -92,9 +92,14 @@ namespace MiniOptimizer.Optimizer
                 } 
                 else if (scanNodes.Count == 1)
                 {
-                    LogicalJoinNode existing = joinNodes.Find(n => n.LeftTable == tableName || n.RightTable == tableName);
-                    logicalPlan.AppendNode(existing, joinNode);
-                    logicalPlan.AppendNode(scanNodes.First(), joinNode);
+                    if (topJoinNode == null)
+                    {
+                        topJoinNode = joinNode;
+                    } else
+                    {
+                        logicalPlan.AppendNode(topJoinNode, joinNode);
+                        logicalPlan.AppendNode(scanNodes.First(), joinNode);
+                    }
                 }
 
                 topJoinNode = joinNode;
