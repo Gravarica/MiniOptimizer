@@ -79,8 +79,52 @@ namespace MiniOptimizer.Optimizer
             }
 
             PrintCostTable(dp, solution, n);
-            // Return the cost and the optimal join order
             return (dp[0, n - 1], solution[0, n - 1]);
+        }
+
+        private long ComputeCost(int start, int end, long[,] dp, LogicalNode[,] solution)
+        {
+            if (dp[start, end] != 0)
+                return dp[start, end];
+
+            if (start == end)
+                return 0;
+
+            long minCost = long.MaxValue;
+            LogicalNode bestNode = null;
+
+            for (int i = start; i < end; i++)
+            {
+                for (int leftStart = start; leftStart <= i; leftStart++)
+                {
+                    for (int rightStart = i + 1; rightStart <= end; rightStart++)
+                    {
+                        long leftCost = ComputeCost(start, i, dp, solution);
+                        long rightCost = ComputeCost(i + 1, end, dp, solution);
+                        var result = CalculateJoinCardinality(solution[start, i], solution[i + 1, end]);
+                        long cost = leftCost + rightCost + result.Item2;
+
+                        if (cost < minCost)
+                        {
+                            minCost = cost;
+                            LogicalNode newJoin;
+                            if (result.Item1 == null)
+                            {
+                                newJoin = new LogicalProductNode(LogicalPlan.GetNextNodeId(), solution[start, i], solution[i + 1, end]);
+                            }
+                            else
+                            {
+                                newJoin = new LogicalJoinNode(LogicalPlan.GetNextNodeId(), solution[start, i], solution[i + 1, end], result.Item1);
+                            }
+                            bestNode = newJoin;
+                        }
+                    }
+                }
+            }
+
+            dp[start, end] = minCost;
+            solution[start, end] = bestNode;
+            return minCost;
         }
 
         private (string, long) CalculateJoinCardinality(LogicalNode node1, LogicalNode node2)

@@ -61,7 +61,7 @@ namespace MiniOptimizer.Utils
 
             foreach(var childVal in rChildValues)
             {
-                if (keyValuePairs.ContainsKey(childVal.Key))
+                if (!keyValuePairs.ContainsKey(childVal.Key))
                 {
                     keyValuePairs[childVal.Key] = childVal.Value;
                 } else

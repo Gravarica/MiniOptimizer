@@ -209,7 +209,21 @@ namespace MiniOptimizer.LogicPlan
         {
             if (position == 2)
             {
-                return LeftTable + "|x|" + RightTable;
+                string outString = "";
+
+                if (Children.First() is LogicalJoinNode || Children.First() is LogicalProductNode)
+                {
+                    outString += Children.First().GetTableName();
+                }
+                if (Children.Last() is LogicalJoinNode || Children.Last() is LogicalProductNode)
+                {
+                    outString += Children.Last().GetTableName();
+                } else
+                {
+                    outString += LeftTable + "|X|" + RightTable;
+                }
+
+                return outString;
             }
             return position == 0 ? LeftTable : RightTable;
         }
@@ -230,8 +244,27 @@ namespace MiniOptimizer.LogicPlan
 
         public LogicalProductNode(int id, LogicalNode leftChild, LogicalNode rightChild) : base(id)
         {
+            Type = LogicalNodeType.PRODUCT;
             AddChild(leftChild);
             AddChild(rightChild);
+        }
+
+        public override string GetTableName(int position = 0)
+        {
+            if (position == 2)
+            {
+                string outString = "";
+
+                if (Children.First() is LogicalJoinNode || Children.First() is LogicalProductNode)
+                    outString += Children.First().GetTableName(position);
+                if (Children.Last() is LogicalJoinNode || Children.Last() is LogicalProductNode)
+                    outString += Children.Last().GetTableName(position);
+
+                outString += Children.First().GetTableName() + "x" + Children.Last().GetTableName();
+                return outString;
+            }
+
+            return position == 0 ? Children.First().GetTableName() : Children.Last().GetTableName();
         }
     }
 }
