@@ -38,6 +38,7 @@ namespace MiniOptimizer.LogicPlan
         {
             Id = id;
             Children = new HashSet<LogicalNode>();
+            Cardinality = 0;
         }
 
         public LogicalNode() 
@@ -192,9 +193,32 @@ namespace MiniOptimizer.LogicPlan
             JoinOp = new Op(Predicate.EQ);
         }
 
+        public LogicalJoinNode(int id, LogicalNode leftChild, LogicalNode rightChild, string column) : base(id)
+        {
+            LeftTable = leftChild.GetTableName(1);
+            RightTable = rightChild.GetTableName(0);
+            LeftColumn = column;
+            RightColumn = column; 
+            Type = LogicalNodeType.JOIN;
+            JoinOp = new Op(Predicate.EQ);
+            AddChild(leftChild);
+            AddChild(rightChild);
+        }
+
         public override string GetTableName(int position)
         {
+            if (position == 2)
+            {
+                return LeftTable + "|x|" + RightTable;
+            }
             return position == 0 ? LeftTable : RightTable;
+        }
+
+        public string CanBeJoined(LogicalJoinNode node)
+        {
+            if (node.LeftColumn == LeftColumn || node.RightColumn == LeftColumn) return LeftColumn;
+            if (node.RightColumn == RightColumn || node.LeftColumn == RightColumn) return RightColumn;
+            return null;
         }
     }
 
@@ -202,6 +226,12 @@ namespace MiniOptimizer.LogicPlan
     {
         public LogicalProductNode(int id) : base(id) {
             Type = LogicalNodeType.PRODUCT; 
+        }
+
+        public LogicalProductNode(int id, LogicalNode leftChild, LogicalNode rightChild) : base(id)
+        {
+            AddChild(leftChild);
+            AddChild(rightChild);
         }
     }
 }

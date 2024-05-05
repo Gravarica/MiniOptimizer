@@ -284,15 +284,15 @@ namespace MiniOptimizer.LogicPlan
             switch (node)
             {
                 case LogicalProjectionNode projectionNode:
-                    return $"Projection: {string.Join(", ", projectionNode.Attributes)}";
+                    return $"Projection: {string.Join(", ", projectionNode.Attributes)} | Cardinality: {projectionNode.Cardinality}";
                 case LogicalSelectionNode selectionNode:
-                    return $"Selection: {selectionNode.LeftOperand} {selectionNode.Op.ToString()} {selectionNode.RightOperand}";
+                    return $"Selection: {selectionNode.LeftOperand} {selectionNode.Op.ToString()} {selectionNode.RightOperand} | Cardinality: {selectionNode.Cardinality}";
                 case LogicalJoinNode joinNode:
-                    return $"Join: {joinNode.LeftTable}.{joinNode.LeftColumn} = {joinNode.RightTable}.{joinNode.RightColumn}";
+                    return $"Join: {joinNode.LeftTable}.{joinNode.LeftColumn} = {joinNode.RightTable}.{joinNode.RightColumn} | Cardinality: {joinNode.Cardinality}";
                 case LogicalProductNode productNode:
-                    return "Product";
+                    return $"Product | Cardinality: {productNode.Cardinality}";
                 case LogicalScanNode scanNode:
-                    return $"Scan: {scanNode.TableName}";
+                    return $"Scan: {scanNode.TableName} | Cardinality: {scanNode.Cardinality}";
                 default:
                     return "Unknown node type";
             }

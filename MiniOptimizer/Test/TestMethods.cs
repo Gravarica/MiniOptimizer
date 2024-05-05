@@ -13,11 +13,15 @@ namespace MiniOptimizer.Test
     
     public static class TestMethods
     {
+        const string query1 = "SELECT radnik.mbr FROM radnik, projekat, radproj, angazovanje WHERE" +
+            " radnik.plt = 3000 AND radnik.mbr = radproj.mbr AND radproj.spr = projekat.spr AND radnik.mbr = angazovanje.mbr";
+
         public static void TestRuleBasedOptimizer()
         {
-            Catalog catalog = TestData.TestDataFromFile(true);
+            Catalog catalog = TestData.TestDataFromFile(false);
             RuleBasedOptimizer rbo = new RuleBasedOptimizer(catalog);
             CostModel costModel = new CostModel(catalog);
+            JoinOptimizer jo = new JoinOptimizer(costModel);
             CostBasedOptimizer cbo = new CostBasedOptimizer(catalog, costModel); 
             SQLParser parser = new SQLParser(catalog);
             parser.TurnOffSemanticAnalysis();
@@ -28,6 +32,8 @@ namespace MiniOptimizer.Test
                 if (query == "X") break;
                 try
                 {
+                    if (query == "1")
+                        query = query1;
                     var logicalPlan = parser.Parse(query);
                     logicalPlan.CreateInitialPlan();
                     Console.WriteLine("================= Initial Plan ================== ");
@@ -41,6 +47,11 @@ namespace MiniOptimizer.Test
                     rbo.ReplicateProjections(logicalPlan);
                     Console.WriteLine("================= Replicating projections ================== ");
                     logicalPlan.PrintLogicalPlan();
+                    costModel.EstimatePlanCardinality(logicalPlan);
+                    Console.WriteLine("================= Estimating Plan Cardinality ===================");
+                    logicalPlan.PrintLogicalPlan();
+                    Console.WriteLine("================= Join Ordering ========================");
+                    jo.ComputeOptimalJoinOrder(logicalPlan);
                     Console.WriteLine("================= Selecting access methods ================== ");
                     var physicalPlan = cbo.SelectAccessMethods(logicalPlan);
                     physicalPlan.Print();

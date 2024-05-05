@@ -1,6 +1,7 @@
 ﻿using MiniOptimizer.Metadata;
 using System;
 using System.Collections.Generic;
+using System.Data.Common;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -33,10 +34,39 @@ namespace MiniOptimizer.Utils
                 foreach (var column in columns)
                 {
                     var qualifiedName = ParseHelper.ParseQualifiedName(column);
-                    if (childVal.Key == qualifiedName.Item2)
+                    if (childVal.Key == column)
                     {
                         keyValuePairs[childVal.Key] = childVal.Value;
-                    }
+                    } else if (qualifiedName != null)
+                    {
+                        if (childVal.Key == qualifiedName.Item2)
+                            keyValuePairs[childVal.Key] = childVal.Value;
+                    } 
+                    
+                }
+            }
+
+            return keyValuePairs;
+        }
+
+        public static Dictionary<string, long> GetDistinctValuesForProduct(Dictionary<string, long> lChildValues,
+            Dictionary<string, long> rChildValues)
+        {
+            Dictionary<string, long> keyValuePairs = new Dictionary<string, long>();
+
+            foreach (var childVal in lChildValues)
+            {
+                keyValuePairs[childVal.Key] = childVal.Value;
+            }
+
+            foreach(var childVal in rChildValues)
+            {
+                if (keyValuePairs.ContainsKey(childVal.Key))
+                {
+                    keyValuePairs[childVal.Key] = childVal.Value;
+                } else
+                {
+                    keyValuePairs[childVal.Key] += childVal.Value;
                 }
             }
 

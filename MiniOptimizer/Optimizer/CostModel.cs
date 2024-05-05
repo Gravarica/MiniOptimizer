@@ -21,6 +21,22 @@ namespace MiniOptimizer.Optimizer
             _catalog = catalog;
         }
 
+        public void EstimatePlanCardinality(LogicalPlan plan)
+        {
+            EstimateNodeCardinality(plan.RootNode);
+        }
+
+        private void EstimateNodeCardinality(LogicalNode node)
+        {
+
+            foreach(var child in node.Children)
+            {
+                EstimateNodeCardinality(child);
+            }
+
+            EstimateCardinality(node);
+        }
+
         public long EstimateCardinality(LogicalNode node)
         {
             long cardinality;
@@ -150,10 +166,13 @@ namespace MiniOptimizer.Optimizer
             return cardinality;
         }
 
-        //public long EstimatePotentialJoinCardinality(LogicalNode node1, LogicalNode node2)
-        //{
-
-        //}
+        public long EstimatePotentialJoinCardinality(LogicalNode node1, LogicalNode node2, string column)
+        {
+            LogicalJoinNode node = new LogicalJoinNode(LogicalPlan.GetNextNodeId(), column, column, null, null);
+            node.AddChild(node1);
+            node.AddChild(node2);
+            return EstimateJoinCardinality(node);
+        }
 
         private long EstimateJoinCardinality(LogicalJoinNode node)
         {
@@ -213,6 +232,8 @@ namespace MiniOptimizer.Optimizer
 
         private long EstimateProductCardinality(LogicalProductNode node)
         {
+            node.DistinctValues = CostModelUtil.GetDistinctValuesForProduct(node.Children.First().DistinctValues,
+                                                                            node.Children.Last().DistinctValues);
             return node.Children.Last().Cardinality * node.Children.First().Cardinality;
         }
 
