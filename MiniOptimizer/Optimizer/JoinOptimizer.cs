@@ -1,10 +1,13 @@
 ﻿using MiniOptimizer.LogicPlan;
 using MiniOptimizer.Metadata;
+using MiniOptimizer.Utils;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static Antlr4.Runtime.Atn.SemanticContext;
 
 namespace MiniOptimizer.Optimizer
 {
@@ -19,67 +22,34 @@ namespace MiniOptimizer.Optimizer
 
         public (long, LogicalNode) ComputeOptimalJoinOrder(LogicalPlan logicalPlan)
         {
-            Func<LogicalNode, bool> isJoinNode = node =>
-                                    node is LogicalJoinNode;
+            var dpInit = JoinOptimizerUtils.InitializeDP(logicalPlan);
+            LogicalNode[,] solution = dpInit.Item3;
+            long[,] dp = dpInit.Item2;
+            int n = dpInit.Item1;
 
-            List<LogicalNode> joinNodes = logicalPlan.FindAll(isJoinNode);
-            List<LogicalNode> tableNodes = new List<LogicalNode>();
-            foreach(var joinNode in joinNodes)
-            {
-                foreach (var child in joinNode.Children)
-                {
-                    if (!(child is LogicalJoinNode))
-                    {
-                        tableNodes.Add(child);
-                    }
-                }
-            }
-
-            int n = tableNodes.Count;
-            long[,] dp = new long[n, n];
-            int[,] split = new int[n, n];
-            LogicalNode[,] solution = new LogicalNode[n, n];
-
-            for (int i = 0; i < n; i++)
-            {
-                dp[i, i] = 0;
-                solution[i, i] = tableNodes[i];
-
-            }
-
-            for (int len = 2; len <= n; len++)
-            {
-                for (int i = 0; i <= n - len; i++)
-                {
-                    int j = i + len - 1;
-                    dp[i, j] = long.MaxValue;
-
-                    for (int k = i; k < j; k++)
-                    {
-                        var result = CalculateJoinCardinality(solution[i, k], solution[k + 1, j]);
-                        long cost = dp[i, k] + dp[k + 1, j] + result.Item2;
-                        if (cost < dp[i, j])
-                        {
-                            dp[i, j] = cost;
-                            split[i, j] = k;
-                            // Combine nodes into a new join node
-                            LogicalNode newJoin;
-                            if (result.Item1 == null)
-                            {
-                                newJoin = new LogicalProductNode(LogicalPlan.GetNextNodeId(), solution[i, k], solution[k + 1, j]);
-                            } else
-                            {
-                                newJoin = new LogicalJoinNode(LogicalPlan.GetNextNodeId(), solution[i, k], solution[k + 1, j], result.Item1);
-                            }
-                            _costModel.EstimateCardinality(newJoin);
-                            solution[i, j] = newJoin;
-                        }
-                    }
-                }
-            }
+            //long totalCost = ComputeCost(0, n - 1, dp, solution);
+            //for (int i = 0; i < n; i++)
+            //{
+            //    for (int j = i + 1; j < n; j++)
+            //    {
+            //        var result = CalculateJoinCardinality(solution[i, i], solution[j, j]);
+            //        LogicalNode newJoin;
+            //        if (result.Item1 == null)
+            //        {
+            //            newJoin = new LogicalProductNode(LogicalPlan.GetNextNodeId(), solution[i, i], solution[j, j]);
+            //        }
+            //        else
+            //        {
+            //            newJoin = new LogicalJoinNode(LogicalPlan.GetNextNodeId(), solution[i, i], solution[j, j], result.Item1);
+            //        }
+            //        _costModel.EstimateCardinality(newJoin);
+            //        solution[i, j] = newJoin;
+            //    }
+            //}
+            long totalCost = ComputeCost(0, n - 1, dp, solution);
 
             PrintCostTable(dp, solution, n);
-            return (dp[0, n - 1], solution[0, n - 1]);
+            return (totalCost, solution[0, n - 1]);
         }
 
         private long ComputeCost(int start, int end, long[,] dp, LogicalNode[,] solution)
@@ -117,6 +87,7 @@ namespace MiniOptimizer.Optimizer
                                 newJoin = new LogicalJoinNode(LogicalPlan.GetNextNodeId(), solution[start, i], solution[i + 1, end], result.Item1);
                             }
                             bestNode = newJoin;
+                            _costModel.EstimateCardinality(bestNode);
                         }
                     }
                 }

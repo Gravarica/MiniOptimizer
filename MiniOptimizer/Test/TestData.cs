@@ -41,10 +41,10 @@ namespace MiniOptimizer.Test
 
             if (generate)
             {
-                FileGenerator.GenerateDataFile(filePath1, columns1, 50000, new int[] { 1, 1990, 1000 }, new int[] { 50000, 2004, 5000 });
-                FileGenerator.GenerateDataFile(filePath2, columns2, 500000, new int[] { 1, 1, 1 }, new int[] { 50000, 50, 12 });
-                FileGenerator.GenerateDataFile(filePath3, columns3, 100000, new int[] { 1, 1, 1 }, new int[] { 50000, 50000, 12 });
-                FileGenerator.GenerateDataFile(filePath4, columns4, 50000, new int[] { 1, 1 }, new int[] { 50000, 10});
+                FileGenerator.GenerateDataFile(filePath1, columns1, 10000, new int[] { 3000, 1990, 1000 }, new int[] { 10000, 2004, 5000 });
+                FileGenerator.GenerateDataFile(filePath2, columns2, 50000, new int[] { 1, 1, 1 }, new int[] { 500000, 50, 12 });
+                FileGenerator.GenerateDataFile(filePath3, columns3, 10000, new int[] { 1, 1, 1 }, new int[] { 10000, 500000, 12 });
+                FileGenerator.GenerateDataFile(filePath4, columns4, 10000, new int[] { 1, 1 }, new int[] { 10000, 10});
             }
 
             Console.WriteLine("Files generated successfully.");

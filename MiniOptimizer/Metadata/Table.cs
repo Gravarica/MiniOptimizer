@@ -68,6 +68,7 @@ namespace MiniOptimizer.Metadata
             {
                 string columnName = Columns.Keys.ElementAt(i);
                 Console.WriteLine("\t Column: " + columnName);
+                Console.WriteLine("\t DistVals: " + Statistics.ColumnStats[columnName].DistinctValues);
                 Statistics.ColumnStats[columnName].PrintHistogram();
             }
         }
