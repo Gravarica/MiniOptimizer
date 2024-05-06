@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MiniOptimizer.Exceptions;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,7 +9,7 @@ namespace MiniOptimizer.Metadata
 {
     public class Catalog
     {
-        Dictionary<string, Table> Tables{ get ; set; }
+        public Dictionary<string, Table> Tables{ get ; set; }
         public Catalog() 
         {
             Tables = [];
@@ -39,6 +40,59 @@ namespace MiniOptimizer.Metadata
             return (from table in Tables
                     where table.Value.CheckIfColumnExists(column)
                     select table.Key).ToList();
+        }
+
+        public TableStats GetTableStats(string tableName)
+        {
+            if (Tables.ContainsKey(tableName))
+            {
+                return Tables[tableName].Statistics;
+            }
+
+            throw new BaseException("Table statistics for table " + " do not exist.");
+        }
+
+        public bool HasIndexOnColumn(string tableName, string columnName) 
+        {
+            Table table = Tables[tableName];
+            return table.Indexes.Any(index => index.IndexedColumns.Contains(columnName));
+        }
+
+        public bool HasCompoundIndex(string tableName, HashSet<string> columnNames)
+        {
+            Table table = Tables[tableName];
+            bool found = true;
+
+
+            foreach (var index in table.Indexes)
+            {
+                if (index.IndexedColumns.Count != columnNames.Count)
+                {
+                    found = false;
+                    continue;
+                }
+
+                foreach (var indexedColumn in index.IndexedColumns)
+                {
+
+                    if (!columnNames.Contains(indexedColumn))
+                    {
+                        found = false;
+                        continue;
+                    }
+                }
+            }
+            return found;
+        }
+
+        public Index GetIndex(string tableName, string column)
+        {
+            return Tables[tableName].GetIndex(column);
+        }
+
+        public Index GetCompoundIndex(string tableName, HashSet<string> columns)
+        {
+            return Tables[tableName].GetCompoundIndex(columns);
         }
     }
 }

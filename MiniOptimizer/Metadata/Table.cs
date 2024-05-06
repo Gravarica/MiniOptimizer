@@ -45,6 +45,21 @@ namespace MiniOptimizer.Metadata
             return Columns[column].MiniQLDataType;
         }
 
+        public Index GetIndex(string columnName)
+        {
+            foreach (var index in Indexes)
+            {
+                if (index.HasColumn(columnName)) return index;
+            }
+
+            return null;
+        }
+
+        public Index GetCompoundIndex(HashSet<string> columns)
+        {
+            return Indexes.Where(i => i.HasColumns(columns)).First();
+        }
+
         public void PrintTableStats()
         {
             Console.WriteLine("Table: " + Name);
@@ -52,6 +67,8 @@ namespace MiniOptimizer.Metadata
             for (int i = 0; i < Columns.Count; i++)
             {
                 string columnName = Columns.Keys.ElementAt(i);
+                Console.WriteLine("\t Column: " + columnName);
+                Console.WriteLine("\t DistVals: " + Statistics.ColumnStats[columnName].DistinctValues);
                 Statistics.ColumnStats[columnName].PrintHistogram();
             }
         }

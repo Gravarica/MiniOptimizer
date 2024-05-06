@@ -39,6 +39,16 @@ namespace MiniOptimizer.Utils
 
             return MiniQLDataType.STRING;
         }
+
+        public static object ParseRightOperand(string rightOperand)
+        {
+            if (int.TryParse(rightOperand, out int value))
+            {
+                return value;
+            }
+
+            return rightOperand;
+        }
     }
 
     

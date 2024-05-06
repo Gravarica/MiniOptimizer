@@ -1,4 +1,5 @@
 ﻿using Antlr4.Runtime;
+using Antlr4.Runtime.Misc;
 using Antlr4.Runtime.Tree;
 using MiniOptimizer;
 using MiniOptimizer.Compiler;
@@ -9,7 +10,7 @@ using System.Collections.Generic;
 
 namespace MiniOptimizer.Compiler
 {
-    public class SQLParser
+    public class SQLParser : IAntlrErrorListener<IToken>
     {
         private Catalog _catalog;
         public LogicalPlan _logicalPlan;
@@ -37,6 +38,7 @@ namespace MiniOptimizer.Compiler
             MiniQLLexer lexer = new MiniQLLexer(inputStream);
             CommonTokenStream tokens = new CommonTokenStream(lexer);
             MiniQLParser parser = new MiniQLParser(tokens);
+            parser.AddErrorListener(this);
 
             parser.AddErrorListener(new BaseErrorListener());
 
@@ -117,6 +119,11 @@ namespace MiniOptimizer.Compiler
                 LogicalSelectionNode selectionNode = new LogicalSelectionNode(LogicalPlan.GetNextNodeId(), type, op, leftOperand, rightOperand);
                 _logicalPlan.SelectionNodes.Add(selectionNode);
             }
+        }
+
+        public void SyntaxError([NotNull] IRecognizer recognizer, [Nullable] IToken offendingSymbol, int line, int charPositionInLine, [NotNull] string msg, [Nullable] RecognitionException e)
+        {
+            throw new BaseException($"Error in parser at line {line}: {msg}");
         }
     }
 }

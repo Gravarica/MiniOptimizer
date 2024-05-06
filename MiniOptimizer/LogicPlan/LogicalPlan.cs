@@ -112,6 +112,25 @@ namespace MiniOptimizer.LogicPlan
             return initial;
         }
 
+        public LogicalNode RemoveSubTree(LogicalNode node)
+        {
+            var parent = node.Parent;
+            node.Parent.RemoveChild(node);
+            return parent;
+        }
+
+        public void AddSubTree(LogicalNode root, LogicalNode node)
+        {
+            root.AddChild(node);
+        }
+
+        public void ChangeSubtree(LogicalNode old, LogicalNode newSt)
+        {
+            var parent = RemoveSubTree(old);
+            AddSubTree(parent, newSt);
+        }
+
+
         public void RemoveNode(LogicalNode node)
         {
             // If node doesn't have a parent, just remove it from the plan
@@ -284,15 +303,17 @@ namespace MiniOptimizer.LogicPlan
             switch (node)
             {
                 case LogicalProjectionNode projectionNode:
-                    return $"Projection: {string.Join(", ", projectionNode.Attributes)}";
+                    return $"Projection: {string.Join(", ", projectionNode.Attributes)} | Cardinality: {projectionNode.Cardinality}";
                 case LogicalSelectionNode selectionNode:
-                    return $"Selection: {selectionNode.LeftOperand} {selectionNode.Op.ToString()} {selectionNode.RightOperand}";
+                    return $"Selection: {selectionNode.LeftOperand} {selectionNode.Op.ToString()} {selectionNode.RightOperand} | Cardinality: {selectionNode.Cardinality}";
                 case LogicalJoinNode joinNode:
-                    return $"Join: {joinNode.LeftTable}.{joinNode.LeftColumn} = {joinNode.RightTable}.{joinNode.RightColumn}";
+                    return $"Join: {joinNode.LeftTable}.{joinNode.LeftColumn} = {joinNode.RightTable}.{joinNode.RightColumn} | Cardinality: {joinNode.Cardinality}";
                 case LogicalProductNode productNode:
-                    return "Product";
+                    return $"Product | Cardinality: {productNode.Cardinality}";
                 case LogicalScanNode scanNode:
-                    return $"Scan: {scanNode.TableName}";
+                    return $"Scan: {scanNode.TableName} | Cardinality: {scanNode.Cardinality}";
+                case LogicalRelationNode relationNode:
+                    return GetNodeDescription(relationNode.ProjectionNode);
                 default:
                     return "Unknown node type";
             }
