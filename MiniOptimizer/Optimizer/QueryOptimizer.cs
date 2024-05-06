@@ -30,7 +30,7 @@ namespace MiniOptimizer.Optimizer
         {
             rbo.Optimize(logicalPlan);
             LogicalNode optimizedTree = jo.OptimizeJoin(logicalPlan);
-            logicalPlan.ChangeSubtree(logicalPlan.RootNode.Children.First(), optimizedTree);
+            if (optimizedTree != null) logicalPlan.ChangeSubtree(logicalPlan.RootNode.Children.First(), optimizedTree);
             return cbo.Optimize(logicalPlan);
         }
     }

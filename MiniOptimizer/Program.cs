@@ -12,8 +12,8 @@ namespace MiniOptimizer
     {
         static void Main(string[] args)
         {
+            //TestMethods.TestOptimizerInternals();
             TestMethods.TestOptimizer();
-            //TestMethods.TestCardinalityEstimation();
         }
     }
 }
