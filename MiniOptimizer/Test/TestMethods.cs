@@ -2,6 +2,7 @@
 using MiniOptimizer.LogicPlan;
 using MiniOptimizer.Metadata;
 using MiniOptimizer.Optimizer;
+using MiniOptimizer.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,7 +17,15 @@ namespace MiniOptimizer.Test
         const string query1 = "SELECT radnik.mbr FROM radnik, projekat, radproj, angazovanje WHERE" +
             " radnik.plt = 3000 AND radnik.mbr = radproj.mbr AND radproj.spr = projekat.spr AND radnik.mbr = angazovanje.mbr";
 
-        public static void TestRuleBasedOptimizer()
+        const string query3 = "SELECT radproj.brc FROM radnik, radproj WHERE radnik.mbr = 3000 AND radnik.mbr = radproj.mbr";
+
+        const string query4 = "SELECT radproj.brc FROM radnik, radproj, projekat WHERE radnik.mbr = radproj.mbr";
+
+        const string query5 = "SELECT radproj.brc FROM radnik, radproj, projekat WHERE radnik.plt = 3000 AND radnik.mbr = radproj.mbr AND radproj.spr = projekat.spr";
+
+        const string query2 = "SELECT A.a1, B.b1, B.d1 FROM A, B, C, D WHERE A.b1 = B.b1 AND A.a1 = C.a1 AND C.f1 = D.f1";
+
+        public static void TestOptimizer()
         {
             Catalog catalog = TestData.TestDataFromFile(false);
             RuleBasedOptimizer rbo = new RuleBasedOptimizer(catalog);
@@ -24,37 +33,67 @@ namespace MiniOptimizer.Test
             JoinOptimizer jo = new JoinOptimizer(costModel);
             CostBasedOptimizer cbo = new CostBasedOptimizer(catalog, costModel); 
             SQLParser parser = new SQLParser(catalog);
-            parser.TurnOffSemanticAnalysis();
             while (true)
             {
-                Console.WriteLine("Unesite upit: ");
+                Console.WriteLine("Enter your query: ");
                 string query = Console.ReadLine();
                 if (query == "X") break;
                 try
                 {
                     if (query == "1")
                         query = query1;
+                    if (query == "2")
+                        query = query2;
+                    if (query == "3")
+                        query = query3;
+                    if (query == "4")
+                        query = query4;
+                    if (query == "5")
+                        query = query5;
+
                     var logicalPlan = parser.Parse(query);
                     logicalPlan.CreateInitialPlan();
                     Console.WriteLine("================= Initial Plan ================== ");
                     logicalPlan.PrintLogicalPlan();
-                    rbo.CreateJoinNodes(logicalPlan);
+                    Console.WriteLine();
+
                     Console.WriteLine("================= Creating joins ================== ");
+                    Console.ReadLine();
+                    rbo.CreateJoinNodes(logicalPlan);
                     logicalPlan.PrintLogicalPlan();
-                    rbo.PushDownSelections(logicalPlan);
+                    Console.WriteLine();
+
                     Console.WriteLine("================= Pushing down selections ================== ");
+                    Console.ReadLine();
+                    rbo.PushDownSelections(logicalPlan);
                     logicalPlan.PrintLogicalPlan();
-                    rbo.ReplicateProjections(logicalPlan);
+                    Console.WriteLine();
+
                     Console.WriteLine("================= Replicating projections ================== ");
+                    Console.ReadLine();
+                    rbo.ReplicateProjections(logicalPlan);
                     logicalPlan.PrintLogicalPlan();
-                    costModel.EstimatePlanCardinality(logicalPlan);
+                    Console.WriteLine();
+
                     Console.WriteLine("================= Estimating Plan Cardinality ===================");
+                    Console.ReadLine();
+                    costModel.EstimatePlanCardinality(logicalPlan);                    
                     logicalPlan.PrintLogicalPlan();
+                    Console.WriteLine();
+
                     Console.WriteLine("================= Join Ordering ========================");
-                    jo.ComputeOptimalJoinOrder(logicalPlan);
-                    Console.WriteLine("================= Selecting access methods ================== ");
-                    var physicalPlan = cbo.SelectAccessMethods(logicalPlan);
-                    physicalPlan.Print();
+                    Console.ReadLine();
+                    LogicalNode optimizedTree = jo.OptimizeJoin(logicalPlan);
+                    if (optimizedTree != null) logicalPlan.ChangeSubtree(logicalPlan.RootNode.Children.First(), optimizedTree);
+                    logicalPlan.PrintLogicalPlan();
+                    Console.WriteLine();
+
+                    Console.WriteLine("================= Converting to Physical plan ================== ");
+                    Console.ReadLine();
+                    var physicalPlan = cbo.Optimize(logicalPlan);
+                    physicalPlan.PrintPhysicalPlan();
+                    Console.WriteLine();
+
                 }
                 catch (Exception ex)
                 {
@@ -63,71 +102,6 @@ namespace MiniOptimizer.Test
             }
         }
 
-        public static void TestProjectionSplitting()
-        {
-            LogicalPlan plan = new LogicalPlan();
-            LogicalProjectionNode node = new LogicalProjectionNode(LogicalPlan.GetNextNodeId());
-            node.AddAttribute("radnik.mbr");
-            node.AddAttribute("radnik.ime");
-            node.AddAttribute("radnik.prz");
-            //node.AddAttribute("projekat.spr");
-            plan.SetRootNode(node);
-            LogicalSelectionNode selectionNode = new LogicalSelectionNode(LogicalPlan.GetNextNodeId(), 
-                                                                          PredicateType.JOIN,
-                                                                          new Op(Predicate.EQ),
-                                                                          "radnik.mbr",
-                                                                          "projekat.ruk");
-            plan.AppendNode(selectionNode, node);
-            plan.SelectionNodes.Add(selectionNode);
-            var projectionNodes = plan.ReplicateProjectionByTable(node);
-            foreach (var projectionNode in projectionNodes) {
-                Console.WriteLine(projectionNode.Key);
-                Console.WriteLine(plan.GetNodeDescription(projectionNode.Value));
-            }
-        }
-
-        public static void TestCardinalityEstimation()
-        {
-            Catalog catalog = TestData.TestDataFromFile(true);
-            LogicalPlan plan = new LogicalPlan();
-            LogicalProjectionNode node = new LogicalProjectionNode(LogicalPlan.GetNextNodeId());
-            node.AddAttribute("radnik.mbr");
-            node.AddAttribute("radnik.ime");
-            node.AddAttribute("radnik.prz");
-            LogicalScanNode scanNode = new LogicalScanNode(LogicalPlan.GetNextNodeId(), "radnik", 1);
-            LogicalScanNode scanNode2 = new LogicalScanNode(LogicalPlan.GetNextNodeId(), "radproj", 1);
-            LogicalScanNode scanNode3 = new LogicalScanNode(LogicalPlan.GetNextNodeId(), "projekat", 1);
-            LogicalJoinNode joinNode = new LogicalJoinNode(LogicalPlan.GetNextNodeId(),
-                                                           "mbr", "mbr", "radnik", "radproj");
-            LogicalJoinNode joinNode2 = new LogicalJoinNode(LogicalPlan.GetNextNodeId(),
-                                                           "spr", "spr", "projekat", "radproj");
-            LogicalSelectionNode selNode = new LogicalSelectionNode(LogicalPlan.GetNextNodeId(), PredicateType.FILTER, new Op(Predicate.EQ),
-                                                                    "radnik.mbr", "10");
-            plan.SetRootNode(node);
-            plan.AppendNode(joinNode, node);
-            plan.AppendNode(scanNode2, joinNode2);
-            plan.AppendNode(scanNode3, joinNode2);
-            plan.AppendNode(joinNode2, joinNode);
-            plan.AppendNode(selNode, joinNode);
-            plan.AppendNode(scanNode, selNode);
-            
-            CostModel model = new CostModel(catalog);
-            
-            var scanEstimation = model.EstimateCardinality(scanNode);
-            var scanEstimation2 = model.EstimateCardinality(scanNode2);
-            var scanEstimation3 = model.EstimateCardinality(scanNode3);
-            var selEstimation = model.EstimateCardinality(selNode);
-            var estimation2 = model.EstimateCardinality(joinNode2);
-            var estimation = model.EstimateCardinality(joinNode);
-            var projEstimation = model.EstimateCardinality(node);
-
-            Console.WriteLine(scanEstimation);
-            Console.WriteLine(selEstimation);
-            Console.WriteLine(scanEstimation2);
-            Console.WriteLine(scanEstimation3);
-            Console.WriteLine(estimation2);
-            Console.WriteLine(estimation);
-            Console.WriteLine(projEstimation);
-        }
+        
     }
 }

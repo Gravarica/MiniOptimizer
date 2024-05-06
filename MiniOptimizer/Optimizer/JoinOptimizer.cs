@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 using static Antlr4.Runtime.Atn.SemanticContext;
 
 namespace MiniOptimizer.Optimizer
@@ -14,167 +15,119 @@ namespace MiniOptimizer.Optimizer
     public class JoinOptimizer
     {
         private CostModel _costModel;
+        private Dictionary<HashSet<LogicalRelationNode>, DPTableEntry> _dpTable;
 
         public JoinOptimizer(CostModel costModel)
         {
             _costModel = costModel;
         }
 
-        public (long, LogicalNode) ComputeOptimalJoinOrder(LogicalPlan logicalPlan)
+        public LogicalNode OptimizeJoin(LogicalPlan logicalPlan)
         {
-            var dpInit = JoinOptimizerUtils.InitializeDP(logicalPlan);
-            LogicalNode[,] solution = dpInit.Item3;
-            long[,] dp = dpInit.Item2;
-            int n = dpInit.Item1;
+            if (logicalPlan.ScanNodes.Count == 1) { return null; }
 
-            //long totalCost = ComputeCost(0, n - 1, dp, solution);
-            //for (int i = 0; i < n; i++)
-            //{
-            //    for (int j = i + 1; j < n; j++)
-            //    {
-            //        var result = CalculateJoinCardinality(solution[i, i], solution[j, j]);
-            //        LogicalNode newJoin;
-            //        if (result.Item1 == null)
-            //        {
-            //            newJoin = new LogicalProductNode(LogicalPlan.GetNextNodeId(), solution[i, i], solution[j, j]);
-            //        }
-            //        else
-            //        {
-            //            newJoin = new LogicalJoinNode(LogicalPlan.GetNextNodeId(), solution[i, i], solution[j, j], result.Item1);
-            //        }
-            //        _costModel.EstimateCardinality(newJoin);
-            //        solution[i, j] = newJoin;
-            //    }
-            //}
-            long totalCost = ComputeCost(0, n - 1, dp, solution);
+            _dpTable = new Dictionary<HashSet<LogicalRelationNode>, DPTableEntry>(HashSet<LogicalRelationNode>.CreateSetComparer());
 
-            PrintCostTable(dp, solution, n);
-            return (totalCost, solution[0, n - 1]);
+            List<LogicalRelationNode> leafNodes = JoinOptimizerUtils.GetRelationNodes(logicalPlan);
+
+            InitializeDPTable(leafNodes);
+
+            DPTableEntry optimalEntry = ComputeOptimalJoinOrder(leafNodes);
+
+            LogicalNode optimalJoinTree = ConstructOptimalJoinTree(optimalEntry);
+
+            return optimalJoinTree;
         }
 
-        private long ComputeCost(int start, int end, long[,] dp, LogicalNode[,] solution)
+        private void InitializeDPTable(List<LogicalRelationNode> leafNodes)
         {
-            if (dp[start, end] != 0)
-                return dp[start, end];
-
-            if (start == end)
-                return 0;
-
-            long minCost = long.MaxValue;
-            LogicalNode bestNode = null;
-
-            for (int i = start; i < end; i++)
+            foreach (LogicalRelationNode leafNode in leafNodes)
             {
-                for (int leftStart = start; leftStart <= i; leftStart++)
+                HashSet<LogicalRelationNode> singleSet = new HashSet<LogicalRelationNode> { leafNode };
+                _dpTable[singleSet] = new DPTableEntry
                 {
-                    for (int rightStart = i + 1; rightStart <= end; rightStart++)
-                    {
-                        long leftCost = ComputeCost(start, i, dp, solution);
-                        long rightCost = ComputeCost(i + 1, end, dp, solution);
-                        var result = CalculateJoinCardinality(solution[start, i], solution[i + 1, end]);
-                        long cost = leftCost + rightCost + result.Item2;
+                    Cost = 0,
+                    Size = leafNode.Cardinality,
+                    JoinTree = leafNode
+                };
+            }
 
-                        if (cost < minCost)
+            for (int i = 0; i < leafNodes.Count - 1; i++)
+            {
+                var node1 = leafNodes[i];
+                for (int j = i + 1; j < leafNodes.Count; j++)
+                {
+                    var node2 = leafNodes[j];
+                    HashSet<LogicalRelationNode> pairSet = new HashSet<LogicalRelationNode> { node1, node2 };
+                    var result = CalculateJoinCardinality(node1, node2);
+                    LogicalNode joinTree;
+                    if (result.Item1 == null)
+                    {
+                        joinTree = new LogicalProductNode(LogicalPlan.GetNextNodeId(), node1, node2);
+                    }
+                    else
+                    {
+                        joinTree = new LogicalJoinNode(LogicalPlan.GetNextNodeId(), node1, node2, result.Item1);
+                    }
+                    _costModel.EstimateCardinality(joinTree);
+                    _dpTable[pairSet] = new DPTableEntry(0, result.Item2, joinTree);
+                }
+            }
+        }
+
+        private DPTableEntry ComputeOptimalJoinOrder(List<LogicalRelationNode> leafNodes)
+        {
+            for (int subsetSize = 3; subsetSize <= leafNodes.Count; subsetSize++)
+            {
+                foreach (HashSet<LogicalRelationNode> subset in JoinOptimizerUtils.GetSubsets(leafNodes, subsetSize))
+                {
+                    DPTableEntry minEntry = null;
+                    foreach (LogicalRelationNode node in subset)
+                    {
+                        HashSet<LogicalRelationNode> remaining = new HashSet<LogicalRelationNode>(subset);
+                        remaining.Remove(node);
+
+                        DPTableEntry remainingEntry = _dpTable[remaining];
+                        var result = CalculateJoinCardinality(remainingEntry.JoinTree, node);
+                        long joinCost = remainingEntry.Size + result.Item2;
+
+                        LogicalNode joinTree;
+                        if (result.Item1 == null)
                         {
-                            minCost = cost;
-                            LogicalNode newJoin;
-                            if (result.Item1 == null)
-                            {
-                                newJoin = new LogicalProductNode(LogicalPlan.GetNextNodeId(), solution[start, i], solution[i + 1, end]);
-                            }
-                            else
-                            {
-                                newJoin = new LogicalJoinNode(LogicalPlan.GetNextNodeId(), solution[start, i], solution[i + 1, end], result.Item1);
-                            }
-                            bestNode = newJoin;
-                            _costModel.EstimateCardinality(bestNode);
+                            joinTree = new LogicalProductNode(LogicalPlan.GetNextNodeId(), remainingEntry.JoinTree, node);
+                        }
+                        else
+                        {
+                            joinTree = new LogicalJoinNode(LogicalPlan.GetNextNodeId(), remainingEntry.JoinTree, node, result.Item1);
+                        }
+
+                        _costModel.EstimateCardinality(joinTree);
+                        DPTableEntry currentEntry = new DPTableEntry(remainingEntry.Cost + joinCost, joinCost, joinTree);
+
+                        if (minEntry == null || currentEntry.Cost < minEntry.Cost)
+                        {
+                            minEntry = currentEntry;
                         }
                     }
+
+                    _dpTable[subset] = minEntry;
                 }
             }
 
-            dp[start, end] = minCost;
-            solution[start, end] = bestNode;
-            return minCost;
+            return _dpTable[new HashSet<LogicalRelationNode>(leafNodes)];
+        }
+
+        private LogicalNode ConstructOptimalJoinTree(DPTableEntry optimalEntry)
+        {
+            return optimalEntry.JoinTree;
         }
 
         private (string, long) CalculateJoinCardinality(LogicalNode node1, LogicalNode node2)
         {
-            var column = CanBeJoined(node1, node2);
+            var column = JoinOptimizerUtils.CanBeJoined(node1, node2);
             if (column == null) return (null, node1.Cardinality * node2.Cardinality);
 
             return (column, _costModel.EstimatePotentialJoinCardinality(node1, node2, column));
-        }
-
-        private string CanBeJoined(LogicalNode node1, LogicalNode node2)
-        {
-            if (node1 is LogicalProjectionNode lpn1)
-            {
-                if (node2 is LogicalProjectionNode lpn2)
-                {
-
-                    foreach (var attribute in lpn1.Attributes)
-                    {
-                        foreach (var attribute2 in lpn2.Attributes)
-                        {
-                            if (attribute == attribute2) return attribute;
-                        }
-                    }
-
-                    return null;
-                }
-
-                if (node2 is LogicalJoinNode || node2 is LogicalProductNode)
-                {
-                    string res = CanBeJoined(node1, node2.Children.First());
-                    if (res == null)
-                    {
-                        return CanBeJoined(node1, node2.Children.Last());
-                    }
-                    return res;
-                }
-            }
-
-            if (node1 is LogicalJoinNode ljn1)
-            {
-                if (node2 is LogicalJoinNode ljn2)
-                {
-                    return ljn1.CanBeJoined(ljn2);
-                }
-
-                if (node2 is LogicalProductNode lproduct)
-                {
-                    string res = CanBeJoined(node1, node2.Children.First());
-                    if (res == null)
-                    {
-                        return CanBeJoined(node1, node2.Children.Last());
-                    }
-                    return res;
-                }
-            }
-
-            return null;
-        }
-
-        private void PrintCostTable(long[,] dp, LogicalNode[,] solution, int n)
-        {
-            Console.WriteLine("Cost Table with Join Orders:");
-            for (int i = 0; i < n; i++)
-            {
-                for (int j = 0; j < n; j++)
-                {
-                    if (i <= j) // Only printing the relevant part of the matrix
-                    {
-                        string tableName = solution[i, j]?.GetTableName(2) ?? "N/A";
-                        Console.Write($"{dp[i, j]} ({tableName})\t");
-                    }
-                    else
-                    {
-                        Console.Write("\t\t"); // Aligning for the unused part of the matrix
-                    }
-                }
-                Console.WriteLine();
-            }
         }
 
     }

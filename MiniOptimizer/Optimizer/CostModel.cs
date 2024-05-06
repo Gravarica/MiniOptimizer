@@ -57,6 +57,9 @@ namespace MiniOptimizer.Optimizer
                 case LogicalNodeType.PRODUCT:
                     cardinality = EstimateProductCardinality(node as LogicalProductNode);
                     break;
+                case LogicalNodeType.RELATION:
+                    cardinality = node.Children.First().Cardinality;
+                    break;
                 default:
                     throw new BaseException("Invalid node type.");
             }

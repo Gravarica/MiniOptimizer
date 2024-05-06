@@ -12,7 +12,7 @@ namespace MiniOptimizer
     {
         static void Main(string[] args)
         {
-            TestMethods.TestRuleBasedOptimizer();
+            TestMethods.TestOptimizer();
             //TestMethods.TestCardinalityEstimation();
         }
     }

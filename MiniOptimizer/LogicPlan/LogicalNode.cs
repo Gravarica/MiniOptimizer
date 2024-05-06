@@ -1,4 +1,5 @@
-﻿using MiniOptimizer.Utils;
+﻿using MiniOptimizer.Metadata;
+using MiniOptimizer.Utils;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -14,7 +15,7 @@ namespace MiniOptimizer.LogicPlan
 
     public enum LogicalNodeType
     {
-        SELECTION, PROJECTION, JOIN, PRODUCT, SCAN
+        SELECTION, PROJECTION, JOIN, PRODUCT, SCAN, RELATION
     }
 
     public enum PredicateType
@@ -265,6 +266,43 @@ namespace MiniOptimizer.LogicPlan
             }
 
             return position == 0 ? Children.First().GetTableName() : Children.Last().GetTableName();
+        }
+    }
+
+    public class LogicalRelationNode : LogicalNode
+    {
+        public LogicalNode ProjectionNode { get; set; }
+        public LogicalNode RelationNode { get; set; }
+
+        public string TableName;
+
+        public LogicalRelationNode(LogicalNode projectionNode)
+        {
+            if (projectionNode is LogicalProjectionNode lpn)
+            {
+                ProjectionNode = lpn;
+                RelationNode = lpn.Children.First();
+                TableName = (RelationNode as LogicalScanNode)?.TableName ?? (RelationNode as LogicalSelectionNode)?.GetTableName(0);
+            } else if (projectionNode is LogicalScanNode scan)
+            {
+                ProjectionNode = scan;
+                RelationNode = scan;
+                TableName = scan.TableName;
+            } else if (projectionNode is LogicalSelectionNode selection)
+            {
+                ProjectionNode = selection;
+                RelationNode = selection.Children.First();
+                TableName = selection.GetTableName();
+            }
+
+            Cardinality = projectionNode.Cardinality;
+            DistinctValues = projectionNode.DistinctValues;
+            Type = LogicalNodeType.RELATION;
+        }
+
+        public override string GetTableName(int position = 0)
+        {
+            return TableName;
         }
     }
 }

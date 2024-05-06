@@ -112,6 +112,25 @@ namespace MiniOptimizer.LogicPlan
             return initial;
         }
 
+        public LogicalNode RemoveSubTree(LogicalNode node)
+        {
+            var parent = node.Parent;
+            node.Parent.RemoveChild(node);
+            return parent;
+        }
+
+        public void AddSubTree(LogicalNode root, LogicalNode node)
+        {
+            root.AddChild(node);
+        }
+
+        public void ChangeSubtree(LogicalNode old, LogicalNode newSt)
+        {
+            var parent = RemoveSubTree(old);
+            AddSubTree(parent, newSt);
+        }
+
+
         public void RemoveNode(LogicalNode node)
         {
             // If node doesn't have a parent, just remove it from the plan
@@ -293,6 +312,8 @@ namespace MiniOptimizer.LogicPlan
                     return $"Product | Cardinality: {productNode.Cardinality}";
                 case LogicalScanNode scanNode:
                     return $"Scan: {scanNode.TableName} | Cardinality: {scanNode.Cardinality}";
+                case LogicalRelationNode relationNode:
+                    return GetNodeDescription(relationNode.ProjectionNode);
                 default:
                     return "Unknown node type";
             }

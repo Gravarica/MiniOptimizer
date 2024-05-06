@@ -215,7 +215,7 @@ namespace MiniOptimizer.PhysicPlan
 
     public class PhysicalProjection : PhysicalNode
     {
-        HashSet<string> Attributes { get; set; } = new HashSet<string>();
+        public HashSet<string> Attributes { get; set; } = new HashSet<string>();
 
         public PhysicalProjection(List<string> attributes)
         {
@@ -225,6 +225,11 @@ namespace MiniOptimizer.PhysicPlan
         public PhysicalProjection(HashSet<string> attributes)
         {
             Attributes = attributes;
+        }
+
+        public PhysicalProjection(LogicalProjectionNode node)
+        {
+            Attributes = node.Attributes;
         }
 
         public override long EstimateExecutionCost(TableStats? statistics = null)
@@ -256,6 +261,41 @@ namespace MiniOptimizer.PhysicPlan
     }
 
     public enum PhysicalJoinType { NESTED_LOOP, INDEX_NESTED_LOOP, HASH, SORT_MERGE };
+
+    public class CrossProduct : PhysicalNode
+    {
+        public string LeftTable { get; set; }
+
+        public string RightTable { get; set; }
+
+        public CrossProduct() { }
+
+        public CrossProduct(string leftTable, string rightTable)
+        {
+            LeftTable=leftTable;
+            RightTable=rightTable;
+        }
+
+        public override long EstimateExecutionCost(TableStats? statistics = null)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override void Execute()
+        {
+            Console.WriteLine("Executing Cross Product");
+        }
+
+        public override string GetTableName(int position)
+        {
+            return position == 0 ? LeftTable : RightTable;
+        }
+
+        public override void Print()
+        {
+            Console.WriteLine("Cross Product: " + LeftTable + " |x| " + RightTable);
+        }
+    }
 
     public class PhysicalJoin : PhysicalNode
     {
@@ -305,9 +345,14 @@ namespace MiniOptimizer.PhysicPlan
 
     public class NestedLoopJoin : PhysicalJoin
     {
-        public NestedLoopJoin(PhysicalJoinType type, string leftTable, string rightTable, string leftColumn, string rightColumn) 
-            : base(type, leftTable, rightTable, leftColumn, rightColumn)
+        public NestedLoopJoin(string leftTable, string rightTable, string leftColumn, string rightColumn) 
+            : base(PhysicalJoinType.NESTED_LOOP, leftTable, rightTable, leftColumn, rightColumn)
         {
+        }
+
+        public NestedLoopJoin(LogicalJoinNode ljn) : base(PhysicalJoinType.NESTED_LOOP, ljn.LeftTable, ljn.RightTable, ljn.LeftColumn, ljn.RightColumn)
+        {
+            Op = ljn.JoinOp;
         }
 
         public override long EstimateExecutionCost(TableStats? statistics = null)

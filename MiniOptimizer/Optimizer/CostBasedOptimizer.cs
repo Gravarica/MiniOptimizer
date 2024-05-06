@@ -22,6 +22,50 @@ namespace MiniOptimizer.Optimizer
             _costModel=costModel;
         }
 
+        public PhysicalPlan Optimize(LogicalPlan logicalPlan)
+        {
+            PhysicalPlan plan = new PhysicalPlan();
+            plan.Root = ConvertToPhysicalNode(logicalPlan.RootNode);
+            return plan;
+
+        }
+
+        public PhysicalNode ConvertToPhysicalNode(LogicalNode node)
+        {
+            PhysicalNode physicalNode = null;
+
+            switch (node)
+            {
+                case LogicalProjectionNode lproj:
+                    physicalNode = SelectPhysicalProjection(lproj);
+                    break;
+                case LogicalJoinNode ljn:
+                    physicalNode = SelectJoinMethod(ljn);
+                    break;
+                case LogicalProductNode lprod:
+                    physicalNode = SelectJoinMethod(lprod);
+                    break;
+                case LogicalRelationNode lrel:
+                    physicalNode = SelectOptimalAccessMethod(lrel.ProjectionNode);
+                    break;
+                case LogicalSelectionNode:
+                    break;
+                case LogicalScanNode:
+                    break;
+                default:
+                    throw new BaseException("Invalid node type while converting to Physical Node");
+            }
+
+            foreach (LogicalNode child in node.Children)
+            {
+                if (child is LogicalSelectionNode || child is LogicalScanNode) break;
+                PhysicalNode childPhysicalNode = ConvertToPhysicalNode(child);
+                physicalNode.AddChild(childPhysicalNode);
+            }
+
+            return physicalNode;
+        }
+
         public PhysicalPlan SelectAccessMethods(LogicalPlan logicalPlan)
         {
             // PSEUDOKOD 
@@ -75,6 +119,8 @@ namespace MiniOptimizer.Optimizer
                     return SelectAccessMethodFromSelection(selectionNode);
                 case LogicalProjectionNode projectionNode:
                     return SelectAccessMethodFromProjection(projectionNode);
+                case LogicalRelationNode relationNode:
+                    return SelectOptimalAccessMethod(relationNode.ProjectionNode);
                 default:
                     throw new BaseException("Unknown node type.");
             }
@@ -153,6 +199,30 @@ namespace MiniOptimizer.Optimizer
             projectionNode.AddChild(accessNode);
 
             return projectionNode;
+        }
+
+        private PhysicalNode SelectJoinMethod(LogicalNode node)
+        {
+            if (node is LogicalProductNode product)
+            {
+                return new CrossProduct(product.GetTableName(0), product.GetTableName(1));
+            }
+
+            // Za pocetak forsiraj samo Nested Loop Join
+
+            if (!(node is LogicalJoinNode joinNode)) throw new BaseException("Not a join node");
+
+            return new NestedLoopJoin(joinNode);
+        }
+
+        private PhysicalNode SelectPhysicalProjection(LogicalNode node)
+        {
+            if (!(node is LogicalProjectionNode lpn)) throw new BaseException("Root note should be projection");
+
+            if (lpn.Children.First() is LogicalScanNode || lpn.Children.First() is LogicalSelectionNode)
+                return SelectOptimalAccessMethod(node);
+
+            return new PhysicalProjection(lpn);
         }
     }
 }

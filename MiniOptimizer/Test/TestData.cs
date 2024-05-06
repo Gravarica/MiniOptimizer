@@ -67,5 +67,36 @@ namespace MiniOptimizer.Test
             Catalog catalog = new Catalog(tables);
             return catalog;
         }
+
+        public static Catalog TestDataFromFile2()
+        {
+            string filePath1 = "A.txt";
+            string filePath2 = "B.txt";
+            string filePath3 = "C.txt";
+            string filePath4 = "D.txt";
+
+            string[] columns1 = new string[] { "a1+", "b1", "c1" };
+            string[] columns2 = new string[] { "b1+", "c1", "d1" };
+            string[] columns3 = new string[] { "a1+", "f1+", "e1" };
+            string[] columns4 = new string[] { "a1+", "f1" };
+
+            Table radnik = FileGenerator.CreateTableFromFile(filePath1, true, ["a1"]);
+            Table projekat = FileGenerator.CreateTableFromFile(filePath2, true, ["b1"]);
+            Table radproj = FileGenerator.CreateTableFromFile(filePath3, false, ["a1", "f1"]);
+            Table angazovanje = FileGenerator.CreateTableFromFile(filePath4, false, ["a1"]);
+
+            tables["A"] = radnik;
+            tables["B"] = projekat;
+            tables["C"] = radproj;
+            tables["D"] = angazovanje;
+
+            Console.WriteLine("Catalog successfully created. Table stats: ");
+
+            radnik.PrintTableStats();
+            radproj.PrintTableStats();
+
+            Catalog catalog = new Catalog(tables);
+            return catalog;
+        }
     }
 }
