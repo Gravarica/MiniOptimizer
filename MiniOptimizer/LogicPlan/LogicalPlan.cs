@@ -1,0 +1,322 @@
+﻿using MiniOptimizer.Utils;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Security.AccessControl;
+using System.Text;
+using System.Threading.Tasks;
+using System.Xml.Linq;
+
+namespace MiniOptimizer.LogicPlan
+{
+    public class LogicalPlan
+    {
+        public LogicalNode RootNode { get; private set; }
+        private static int _nodeId = 0;
+
+        public List<LogicalProjectionNode> ProjectionNodes { get; set; } = new List<LogicalProjectionNode>();
+        public List<LogicalSelectionNode> SelectionNodes { get; set; } = new List<LogicalSelectionNode>();
+        public List<LogicalScanNode> ScanNodes { get; set; } = new List<LogicalScanNode>();
+        public List<LogicalProductNode> ProductNodes {get; set; } = new List<LogicalProductNode>();
+
+        private Queue<LogicalScanNode> _nodeQueue;
+
+        public LogicalPlan()
+        {
+        }
+
+        public LogicalNode CreateProjectionNode(List<string> projectedAttributes)
+        {
+            LogicalProjectionNode projectionNode = new LogicalProjectionNode(GetNextNodeId());
+            foreach (var attribute in projectedAttributes)
+            {
+                projectionNode.AddAttribute(attribute);
+            }
+            return projectionNode;
+        }
+
+        public LogicalNode CreateSelectionNode(Op op, PredicateType type, string leftOperand, string rightOperand)
+        {
+            return new LogicalSelectionNode(GetNextNodeId(), type, op, leftOperand, rightOperand);
+        }
+
+        public LogicalNode CreateJoinNode(Op joinCondition, string leftJoinAttribute, string rightJoinAttribute)
+        {
+            return new LogicalJoinNode(GetNextNodeId(), joinCondition, leftJoinAttribute, rightJoinAttribute);
+        }
+
+        public LogicalNode CreateProductNode()
+        {
+            return new LogicalProductNode(GetNextNodeId());
+        }
+
+        public LogicalNode CreateScanNode(string tableName, int tableId)
+        {
+            return new LogicalScanNode(GetNextNodeId(), tableName, tableId);
+        }
+
+        public void SetRootNode(LogicalNode rootNode)
+        {
+            RootNode = rootNode;
+        }
+
+        public static int GetNextNodeId()
+        {
+            return _nodeId++;
+        }
+
+        public void CreateInitialPlan()
+        {
+            SetRootNode(ProjectionNodes.First());
+
+            if (SelectionNodes.Count > 0)
+            {
+                RootNode.Children.Add(SelectionNodes.First());
+                SelectionNodes.First().Parent = RootNode;
+            }
+                
+
+            for (int i = 1; i < SelectionNodes.Count; i++)
+            {
+                SelectionNodes[i - 1].Children.Add(SelectionNodes[i]);
+                SelectionNodes[i].Parent = SelectionNodes[i - 1];
+            }
+
+            LogicalNode ldtParent = SelectionNodes.Count > 0 ? SelectionNodes.Last() : RootNode;
+
+            if (ScanNodes.Count == 1)
+            {
+                ldtParent.Children.Add(ScanNodes[0]);
+                return;
+            }
+            
+            _nodeQueue = new Queue<LogicalScanNode>(ScanNodes);
+            //LogicalProductNode root = CreateLeftDeepTree();
+            LogicalProductNode root = CreateTotalProductNode();
+
+            ldtParent.Children.Add(root);
+            root.Parent = ldtParent;
+
+        }
+
+        private LogicalProductNode CreateTotalProductNode()
+        {
+            LogicalProductNode initial = new LogicalProductNode(GetNextNodeId());
+
+            foreach (LogicalScanNode scanNode in ScanNodes) 
+            {
+                initial.Children.Add(scanNode);
+                scanNode.Parent = initial;
+            }
+
+            return initial;
+        }
+
+        public LogicalNode RemoveSubTree(LogicalNode node)
+        {
+            var parent = node.Parent;
+            node.Parent.RemoveChild(node);
+            return parent;
+        }
+
+        public void AddSubTree(LogicalNode root, LogicalNode node)
+        {
+            root.AddChild(node);
+        }
+
+        public void ChangeSubtree(LogicalNode old, LogicalNode newSt)
+        {
+            var parent = RemoveSubTree(old);
+            AddSubTree(parent, newSt);
+        }
+
+
+        public void RemoveNode(LogicalNode node)
+        {
+            // If node doesn't have a parent, just remove it from the plan
+            if (node.Parent == null)
+            {
+                node.Children.First().Parent = null;
+                node.Children.Clear();
+                return;
+            }
+
+            node.Parent.Children.Remove(node);
+            foreach (var child in node.Children)
+            {
+                node.Parent.Children.Add(child);
+            }
+            node.Children.First().Parent = node.Parent;
+            node.Children.Clear();
+        }
+
+        public void InsertNode(LogicalNode node, LogicalNode targetNode)
+        {
+            if (targetNode.Parent == null)
+            {
+                targetNode.Parent = node;
+                node.AddChild(targetNode);
+                return;
+            }
+
+            targetNode.Parent.Children.Remove(targetNode);
+            targetNode.Parent.Children.Add(node);
+            node.Parent = targetNode.Parent;
+            node.Children.Add(targetNode);
+            targetNode.Parent = node;
+        }
+
+        public void AppendNode(LogicalNode node, LogicalNode targetNode)
+        {
+            node.Parent = targetNode;
+            targetNode.Children.Add(node);
+        }
+
+        public void MoveNode(LogicalNode node, LogicalNode targetNode)
+        {
+            RemoveNode(node);
+            InsertNode(node, targetNode);
+        }
+
+        public LogicalProductNode CreateLeftDeepTree()
+        {
+
+            LogicalProductNode initial = new LogicalProductNode(GetNextNodeId());
+
+            initial.Children.Add(_nodeQueue.Dequeue());
+            initial.Children.Add(_nodeQueue.Dequeue());
+
+            LogicalProductNode current = initial;
+
+            while (_nodeQueue.Count > 0)
+            {
+                LogicalProductNode newNode = new LogicalProductNode(GetNextNodeId());
+                newNode.Children.Add(current);
+                newNode.Children.Add(_nodeQueue.Dequeue());
+
+                current = newNode;
+            }
+
+            return current;
+        }
+
+        public LogicalNode FindFirst(Func<LogicalNode, bool> predicate)
+        {
+            return FindFirstTraverseRecursive(RootNode, predicate);
+        }
+
+        // Finds the first node of given type
+        public LogicalNode FindFirstTraverseRecursive(LogicalNode node, Func<LogicalNode, bool> predicate)
+        {
+            if (node == null) return null;
+
+            if (predicate(node)) return node;
+
+            foreach(LogicalNode child in node.Children)
+            {
+                LogicalNode returnNode = FindFirstTraverseRecursive(child, predicate);
+                if (returnNode != null) return returnNode;
+            }
+
+            return null;
+        }
+
+        public List<LogicalNode> FindAll(Func<LogicalNode, bool> predicate)
+        {
+            return FindAllTraverseRecursive(RootNode, predicate);
+        }
+
+        public List<LogicalNode> FindAllTraverseRecursive(LogicalNode node, Func<LogicalNode, bool> predicate)
+        {
+            List<LogicalNode> matchingNodes = new List<LogicalNode>();
+
+            if (node == null)
+                return matchingNodes;
+
+            if (predicate(node))
+                matchingNodes.Add(node);
+
+            foreach (LogicalNode child in node.Children)
+            {
+                matchingNodes.AddRange(FindAllTraverseRecursive(child, predicate));
+            }
+
+            return matchingNodes;
+        }
+
+        public Dictionary<string, LogicalProjectionNode> ReplicateProjectionByTable(LogicalProjectionNode node)
+        {
+            Dictionary<string, LogicalProjectionNode> projectionNodes = new Dictionary<string, LogicalProjectionNode>();
+            foreach (string attribute in node.Attributes)
+            {
+                AddAttributeToProjection(attribute, projectionNodes);
+            }
+
+            foreach(var selectionNode in SelectionNodes)
+            {
+                if (selectionNode.PredicateType != PredicateType.JOIN) continue;
+
+                AddAttributeToProjection(selectionNode.LeftOperand, projectionNodes);
+                AddAttributeToProjection(selectionNode.RightOperand, projectionNodes);
+            }
+
+            return projectionNodes;
+        }
+
+        private void AddAttributeToProjection(string attribute, Dictionary<string, LogicalProjectionNode> projectionNodes)
+        {
+            var qualifiedName = ParseHelper.ParseQualifiedName(attribute);
+            if (!projectionNodes.ContainsKey(qualifiedName.Item1))
+            {
+                projectionNodes[qualifiedName.Item1] = new LogicalProjectionNode(GetNextNodeId());
+            }
+
+            projectionNodes[qualifiedName.Item1].AddAttribute(qualifiedName.Item2);
+        }
+
+        public void PrintLogicalPlan()
+        {
+            if (RootNode != null)
+            {
+                Console.WriteLine("Logical Plan:");
+                PrintNode(RootNode, "", true);
+            }
+            else
+            {
+                Console.WriteLine("Logical plan is empty.");
+            }
+        }
+
+        private void PrintNode(LogicalNode node, string prefix, bool isLast)
+        {
+            Console.WriteLine(prefix + (isLast ? "└─ " : "├─ ") + GetNodeDescription(node));
+
+            var children = node.Children.ToList();
+            for (int i = 0; i < children.Count; i++)
+            {
+                PrintNode(children[i], prefix + (isLast ? "   " : "│  "), i == children.Count - 1);
+            }
+        }
+
+        public string GetNodeDescription(LogicalNode node)
+        {
+            switch (node)
+            {
+                case LogicalProjectionNode projectionNode:
+                    return $"Projection: {string.Join(", ", projectionNode.Attributes)} | Cardinality: {projectionNode.Cardinality}";
+                case LogicalSelectionNode selectionNode:
+                    return $"Selection: {selectionNode.LeftOperand} {selectionNode.Op.ToString()} {selectionNode.RightOperand} | Cardinality: {selectionNode.Cardinality}";
+                case LogicalJoinNode joinNode:
+                    return $"Join: {joinNode.LeftTable}.{joinNode.LeftColumn} = {joinNode.RightTable}.{joinNode.RightColumn} | Cardinality: {joinNode.Cardinality}";
+                case LogicalProductNode productNode:
+                    return $"Product | Cardinality: {productNode.Cardinality}";
+                case LogicalScanNode scanNode:
+                    return $"Scan: {scanNode.TableName} | Cardinality: {scanNode.Cardinality}";
+                case LogicalRelationNode relationNode:
+                    return GetNodeDescription(relationNode.ProjectionNode);
+                default:
+                    return "Unknown node type";
+            }
+        }
+    }
+}
