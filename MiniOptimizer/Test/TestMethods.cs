@@ -25,7 +25,7 @@ namespace MiniOptimizer.Test
 
         const string query2 = "SELECT A.a1, B.b1, B.d1 FROM A, B, C, D WHERE A.b1 = B.b1 AND A.a1 = C.a1 AND C.f1 = D.f1";
 
-        public static void TestOptimizer()
+        public static void TestOptimizerInternals()
         {
             Catalog catalog = TestData.TestDataFromFile(false);
             RuleBasedOptimizer rbo = new RuleBasedOptimizer(catalog);
@@ -102,6 +102,31 @@ namespace MiniOptimizer.Test
             }
         }
 
-        
+        public static void TestOptimizer()
+        {
+            Catalog catalog = TestData.TestDataFromFile(false);
+            SQLParser parser = new SQLParser(catalog);
+            QueryOptimizer queryOptimizer = new QueryOptimizer(catalog);
+
+            while (true)
+            {
+                Console.WriteLine("Enter your query: ");
+                string query = Console.ReadLine();
+                if (query == "X") break;
+                try
+                {
+                    var logicalPlan = parser.Parse(query);
+                    logicalPlan.CreateInitialPlan();
+                    var physicalPlan = queryOptimizer.Optimize(logicalPlan);
+                    physicalPlan.PrintPhysicalPlan();
+                    Console.WriteLine();
+
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                }
+            }
+        }
     }
 }
